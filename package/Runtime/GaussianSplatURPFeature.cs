@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 #if GS_ENABLE_URP
 
-#if !UNITY_6000_0_OR_NEWER
-#error Unity Gaussian Splatting URP support only works in Unity 6 or later
-#endif
+//#if !UNITY_6000_0_OR_NEWER
+//#error Unity Gaussian Splatting URP support only works in Unity 6 or later
+//#endif
 
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
