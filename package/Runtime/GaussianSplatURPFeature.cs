@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
 #if GS_ENABLE_URP
 
-//#if !UNITY_6000_0_OR_NEWER
-//#error Unity Gaussian Splatting URP support only works in Unity 6 or later
-//#endif
+#if UNITY_6000_0_OR_NEWER
+using UnityEngine.Rendering.RenderGraphModule;
+#endif
 
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
-using UnityEngine.Rendering.RenderGraphModule;
 
 namespace GaussianSplatting.Runtime
 {
@@ -20,6 +19,7 @@ namespace GaussianSplatting.Runtime
     // ReSharper disable once InconsistentNaming
     class GaussianSplatURPFeature : ScriptableRendererFeature
     {
+#if UNITY_6000_0_OR_NEWER
         class GSRenderPass : ScriptableRenderPass
         {
             const string GaussianSplatRTName = "_GaussianSplatRT";
@@ -71,9 +71,77 @@ namespace GaussianSplatting.Runtime
                 });
             }
         }
+#else
+        // Unity 2022.3 (URP 14.x) implementation using classic Execute-based ScriptableRenderPass
+        class GSRenderPass : ScriptableRenderPass
+        {
+            static readonly int s_GaussianSplatRT = Shader.PropertyToID("_GaussianSplatRT");
+            static readonly ProfilingSampler s_ProfilingSampler = new("GaussianSplatURP");
+
+            ScriptableRenderer m_Renderer;
+            RenderTargetHandle m_GaussianSplatRT;
+            RenderTargetIdentifier m_ColorTarget;
+            RenderTargetIdentifier m_DepthTarget;
+
+            public GSRenderPass()
+            {
+                m_GaussianSplatRT.Init("_GaussianSplatRT");
+            }
+
+            public void Setup(ScriptableRenderer renderer)
+            {
+                m_Renderer = renderer;
+            }
+
+            public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
+            {
+                // Camera targets must be accessed within ScriptableRenderPass scope
+                m_ColorTarget = m_Renderer.cameraColorTarget;
+                m_DepthTarget = m_Renderer.cameraDepthTarget;
+
+                var desc = renderingData.cameraData.cameraTargetDescriptor;
+                desc.depthBufferBits = 0;
+                desc.msaaSamples = 1;
+                desc.graphicsFormat = GraphicsFormat.R16G16B16A16_SFloat;
+                cmd.GetTemporaryRT(m_GaussianSplatRT.id, desc, FilterMode.Point);
+            }
+
+            public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
+            {
+                var camera = renderingData.cameraData.camera;
+                var system = GaussianSplatRenderSystem.instance;
+
+                var cmd = CommandBufferPool.Get("GaussianSplatURP");
+                {
+                    using var profilingScope = new ProfilingScope(cmd, s_ProfilingSampler);
+
+                    cmd.SetGlobalTexture(s_GaussianSplatRT, m_GaussianSplatRT.Identifier());
+                    CoreUtils.SetRenderTarget(cmd, m_GaussianSplatRT.Identifier(), m_DepthTarget, ClearFlag.Color, Color.clear);
+
+                    Material matComposite = system.SortAndRenderSplats(camera, cmd);
+
+                    // Composite onto camera color target using DrawProcedural (matches BiRP pattern)
+                    cmd.BeginSample(GaussianSplatRenderSystem.s_ProfCompose);
+                    cmd.SetRenderTarget(m_ColorTarget);
+                    cmd.DrawProcedural(Matrix4x4.identity, matComposite, 0, MeshTopology.Triangles, 3, 1);
+                    cmd.EndSample(GaussianSplatRenderSystem.s_ProfCompose);
+                }
+
+                context.ExecuteCommandBuffer(cmd);
+                CommandBufferPool.Release(cmd);
+            }
+
+            public override void OnCameraCleanup(CommandBuffer cmd)
+            {
+                cmd.ReleaseTemporaryRT(m_GaussianSplatRT.id);
+            }
+        }
+#endif
 
         GSRenderPass m_Pass;
+#if UNITY_6000_0_OR_NEWER
         bool m_HasCamera;
+#endif
 
         public override void Create()
         {
@@ -83,6 +151,7 @@ namespace GaussianSplatting.Runtime
             };
         }
 
+#if UNITY_6000_0_OR_NEWER
         public override void OnCameraPreCull(ScriptableRenderer renderer, in CameraData cameraData)
         {
             m_HasCamera = false;
@@ -92,12 +161,22 @@ namespace GaussianSplatting.Runtime
 
             m_HasCamera = true;
         }
+#endif
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
+#if UNITY_6000_0_OR_NEWER
             if (!m_HasCamera)
                 return;
-            renderer.EnqueuePass(m_Pass);
+#else
+            // In Unity 2022.3, OnCameraPreCull is not available with CameraData,
+            // so check for valid splats here
+            var system = GaussianSplatRenderSystem.instance;
+            if (!system.GatherSplatsForCamera(renderingData.cameraData.camera))
+                return;
+            m_Pass.Setup(renderer);
+#endif
+            //renderer.EnqueuePass(m_Pass);
         }
 
         protected override void Dispose(bool disposing)
