@@ -76,7 +76,6 @@ namespace GaussianSplatting.Runtime
         class GSRenderPass : ScriptableRenderPass
         {
             static readonly int s_GaussianSplatRT = Shader.PropertyToID("_GaussianSplatRT");
-            static readonly ProfilingSampler s_ProfilingSampler = new("GaussianSplatURP");
 
             ScriptableRenderer m_Renderer;
             RenderTargetHandle m_GaussianSplatRT;
@@ -113,8 +112,6 @@ namespace GaussianSplatting.Runtime
 
                 var cmd = CommandBufferPool.Get("GaussianSplatURP");
                 {
-                    using var profilingScope = new ProfilingScope(cmd, s_ProfilingSampler);
-
                     cmd.SetGlobalTexture(s_GaussianSplatRT, m_GaussianSplatRT.Identifier());
                     CoreUtils.SetRenderTarget(cmd, m_GaussianSplatRT.Identifier(), m_DepthTarget, ClearFlag.Color, Color.clear);
 
@@ -176,7 +173,7 @@ namespace GaussianSplatting.Runtime
                 return;
             m_Pass.Setup(renderer);
 #endif
-            //renderer.EnqueuePass(m_Pass);
+            renderer.EnqueuePass(m_Pass);
         }
 
         protected override void Dispose(bool disposing)
