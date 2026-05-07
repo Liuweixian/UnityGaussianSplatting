@@ -26,3 +26,4 @@
 /projects/**/obj/*
 *.sln.DotSettings.user
 build
+.codely-cli
