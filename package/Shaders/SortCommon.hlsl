@@ -110,11 +110,6 @@ inline uint getWaveIndex(uint gtid, uint waveSize)
     return gtid / waveSize;
 }
 
-inline uint LaneIndex(uint gtid, uint waveSize)
-{
-    return gtid & (waveSize - 1);
-}
-
 //Radix Tricks by Michael Herf
 //http://stereopsis.com/radix.html
 inline uint FloatToUint(float f)
@@ -176,7 +171,7 @@ inline uint SubPartSizeWGE16(uint waveSize)
 
 inline uint SharedOffsetWGE16(uint gtid, uint waveSize)
 {
-    return LaneIndex(gtid, waveSize) + getWaveIndex(gtid, waveSize) * SubPartSizeWGE16(waveSize);
+    return WaveGetLaneIndex() + getWaveIndex(gtid, waveSize) * SubPartSizeWGE16(waveSize);
 }
 
 inline uint SubPartSizeWLT16(uint waveSize, uint _serialIterations)
@@ -186,7 +181,7 @@ inline uint SubPartSizeWLT16(uint waveSize, uint _serialIterations)
 
 inline uint SharedOffsetWLT16(uint gtid, uint waveSize, uint _serialIterations)
 {
-    return LaneIndex(gtid, waveSize) +
+    return WaveGetLaneIndex() +
         (getWaveIndex(gtid, waveSize) / _serialIterations * SubPartSizeWLT16(waveSize, _serialIterations)) +
         (getWaveIndex(gtid, waveSize) % _serialIterations * waveSize);
 }
@@ -335,16 +330,16 @@ inline void WarpLevelMultiSplitWGE16(uint key, inout uint4 waveFlags)
     }
 }
 
-inline uint2 CountBitsWGE16(uint gtid, uint waveSize, uint ltMask, uint4 waveFlags)
+inline uint2 CountBitsWGE16(uint waveSize, uint ltMask, uint4 waveFlags)
 {
     uint2 count = uint2(0, 0);
     
     for(uint wavePart = 0; wavePart < waveSize; wavePart += 32)
     {
         uint t = countbits(waveFlags[wavePart >> 5]);
-        if (LaneIndex(gtid, waveSize) >= wavePart)
+        if (WaveGetLaneIndex() >= wavePart)
         {
-            if (LaneIndex(gtid, waveSize) >= wavePart + 32)
+            if (WaveGetLaneIndex() >= wavePart + 32)
                 count.x += t;
             else
                 count.x += countbits(waveFlags[wavePart >> 5] & ltMask);
@@ -366,14 +361,13 @@ inline void WarpLevelMultiSplitWLT16(uint key, inout uint waveFlags)
 }
 
 inline OffsetStruct RankKeysWGE16(
-    uint gtid,
     uint waveSize,
     uint waveOffset,
     KeyStruct keys)
 {
     OffsetStruct offsets;
     const uint initialFlags = WaveFlagsWGE16(waveSize);
-    const uint ltMask = (1U << (LaneIndex(gtid, waveSize) & 31)) - 1;
+    const uint ltMask = (1U << (WaveGetLaneIndex() & 31)) - 1;
     
     [unroll]
     for (uint i = 0; i < KEYS_PER_THREAD; ++i)
@@ -382,7 +376,7 @@ inline OffsetStruct RankKeysWGE16(
         WarpLevelMultiSplitWGE16(keys.k[i], waveFlags);
         
         const uint index = ExtractDigit(keys.k[i]) + waveOffset;
-        const uint2 bitCount = CountBitsWGE16(gtid, waveSize, ltMask, waveFlags);
+        const uint2 bitCount = CountBitsWGE16(waveSize, ltMask, waveFlags);
         
         offsets.o[i] = g_d[index] + bitCount.x;
         GroupMemoryBarrierWithGroupSync();
@@ -394,10 +388,10 @@ inline OffsetStruct RankKeysWGE16(
     return offsets;
 }
 
-inline OffsetStruct RankKeysWLT16(uint gtid, uint waveSize, uint waveIndex, KeyStruct keys, uint serialIterations)
+inline OffsetStruct RankKeysWLT16(uint waveSize, uint waveIndex, KeyStruct keys, uint serialIterations)
 {
     OffsetStruct offsets;
-    const uint ltMask = (1U << LaneIndex(gtid, waveSize)) - 1;
+    const uint ltMask = (1U << WaveGetLaneIndex()) - 1;
     const uint initialFlags = WaveFlagsWLT16(waveSize);
     
     [unroll]
@@ -455,7 +449,7 @@ inline void WaveHistReductionExclusiveScanWGE16(uint gtid, uint waveSize, uint h
     if (gtid < RADIX)
     {
         const uint laneMask = waveSize - 1;
-        g_d[((LaneIndex(gtid, waveSize) + 1) & laneMask) + (gtid & ~laneMask)] = histReduction;
+        g_d[((WaveGetLaneIndex() + 1) & laneMask) + (gtid & ~laneMask)] = histReduction;
     }
     GroupMemoryBarrierWithGroupSync();
                 
@@ -467,7 +461,7 @@ inline void WaveHistReductionExclusiveScanWGE16(uint gtid, uint waveSize, uint h
     GroupMemoryBarrierWithGroupSync();
     
     uint t = WaveReadLaneAt(g_d[gtid], 0);
-    if (gtid < RADIX && LaneIndex(gtid, waveSize))
+    if (gtid < RADIX && WaveGetLaneIndex())
         g_d[gtid] += t;
 }
 
