@@ -130,11 +130,7 @@ inline uint TJWavePrefixSum(uint gtid, uint val)
 
 inline uint TJWaveGetLaneIndex(uint gtid, uint waveSize)
 {
-#if defined(WAVE_OPS_SUPPORT)
     return gtid & (waveSize - 1); //WaveGetLaneIndex();Ensure different build target render as same in Editor
-#else
-    return gtid & (waveSize - 1);
-#endif
 }
 
 inline uint4 TJWaveActiveBallot(uint gtid, bool pred)
