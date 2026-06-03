@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-#pragma use_dxc
+//#pragma use_dxc
 
 #if defined(SHADER_API_GLES3) || defined(SHADER_API_GLES)
 #define GROUP_SIZE 256
@@ -33,9 +33,7 @@
 #pragma kernel Scan
 #pragma kernel Downsweep
 
-// GPU sorting needs wave ops
-//#pragma require wavebasic
-//#pragma require waveballot
+// DeviceRadixSort uses shared memory based wave emulation instead of wave intrinsics
 
 #include "DeviceRadixSort.hlsl"
 #include "GaussianSplatting.hlsl"

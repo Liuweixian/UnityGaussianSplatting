@@ -67,6 +67,7 @@ RWStructuredBuffer<float> b_altPayload;
 #endif
 
 groupshared uint g_d[D_TOTAL_SMEM]; //Shared memory for DigitBinningPass and DownSweep kernels
+groupshared uint g_waveMem[D_DIM];  //Shared memory for wave operation emulation
 
 struct KeyStruct
 {
@@ -94,21 +95,23 @@ struct DigitStruct
 //*****************************************************************************
 //HELPER FUNCTIONS
 //*****************************************************************************
+
+// Wave size for subgroup emulation via shared memory.
+// Override with -DWAVE_SIZE=64 for devices with 64-wide subgroups.
+// Adreno 690 on Vulkan: subgroup size is 32.
+#ifndef WAVE_SIZE
+#define WAVE_SIZE 32
+#endif
+
 inline uint TJWaveGetLaneCount()
 {
-    return WaveGetLaneCount();
-    //return 32;
+    return WAVE_SIZE;
 }
 
-//Due to a bug with SPIRV pre 1.6, we cannot use WaveGetLaneCount() to get the currently active wavesize 
+// Wave size is now a compile-time constant, no runtime detection needed.
 inline uint getWaveSize()
 {
-#if defined(VULKAN)
-    GroupMemoryBarrierWithGroupSync(); //Make absolutely sure the wave is not diverged here
-    return dot(countbits(WaveActiveBallot(true)), uint4(1, 1, 1, 1));
-#else
-    return TJWaveGetLaneCount();
-#endif
+    return WAVE_SIZE;
 }
 
 inline uint getWaveIndex(uint gtid, uint waveSize)
@@ -116,16 +119,34 @@ inline uint getWaveIndex(uint gtid, uint waveSize)
     return gtid / waveSize;
 }
 
+// Shared memory based WaveReadLaneAt: broadcasts val from the given lane
+// to all lanes within the wave. Must be called by ALL threads in the group.
 inline uint TJWaveReadLaneAt(uint gtid, uint val, uint lane)
 {
-    return WaveReadLaneAt(val, lane);
-    //return val;
+    g_waveMem[gtid] = val;
+    GroupMemoryBarrierWithGroupSync();
+    const uint base = gtid - (gtid & (WAVE_SIZE - 1));
+    uint result = g_waveMem[base + lane];
+    GroupMemoryBarrierWithGroupSync();
+    return result;
 }
 
+// Shared memory based exclusive WavePrefixSum.
+// Must be called by ALL threads in the group.
+// Non-participating threads should pass 0 as val.
 inline uint TJWavePrefixSum(uint gtid, uint val)
 {
-    return WavePrefixSum(val);
-    //return val;
+    const uint laneIndex = gtid & (WAVE_SIZE - 1);
+    const uint base = gtid - laneIndex;
+    g_waveMem[gtid] = val;
+    GroupMemoryBarrierWithGroupSync();
+    uint sum = 0;
+    for (uint i = 0; i < laneIndex; i++)
+    {
+        sum += g_waveMem[base + i];
+    }
+    GroupMemoryBarrierWithGroupSync();
+    return sum;
 }
 
 inline uint TJWaveGetLaneIndex(uint gtid, uint waveSize)
@@ -133,10 +154,24 @@ inline uint TJWaveGetLaneIndex(uint gtid, uint waveSize)
     return gtid & (waveSize - 1); //WaveGetLaneIndex();Ensure different build target render as same in Editor
 }
 
+// Shared memory based WaveActiveBallot: returns a uint4 bitmask where bit i
+// is set if lane i's predicate is true. Must be called by ALL threads in the group.
 inline uint4 TJWaveActiveBallot(uint gtid, bool pred)
 {
-    return WaveActiveBallot(pred);
-    //return uint4(0, 0, 0, 0);
+    g_waveMem[gtid] = pred ? 1 : 0;
+    GroupMemoryBarrierWithGroupSync();
+    const uint base = gtid - (gtid & (WAVE_SIZE - 1));
+    uint4 result = uint4(0, 0, 0, 0);
+    [unroll]
+    for (uint i = 0; i < WAVE_SIZE; i++)
+    {
+        if (g_waveMem[base + i])
+        {
+            result[i >> 5] |= (1u << (i & 31));
+        }
+    }
+    GroupMemoryBarrierWithGroupSync();
+    return result;
 }
 
 //Radix Tricks by Michael Herf
@@ -483,10 +518,13 @@ inline void WaveHistReductionExclusiveScanWGE16(uint gtid, uint waveSize, uint h
     }
     GroupMemoryBarrierWithGroupSync();
                 
+    // All threads call TJWavePrefixSum to satisfy barrier requirements.
+    // Non-participating threads pass 0 so they don't affect the prefix sum.
+    uint prefixInput = (gtid < RADIX / waveSize) ? g_d[gtid * waveSize] : 0;
+    uint prefixResult = TJWavePrefixSum(gtid, prefixInput);
     if (gtid < RADIX / waveSize)
     {
-        g_d[gtid * waveSize] =
-            TJWavePrefixSum(gtid, g_d[gtid * waveSize]);
+        g_d[gtid * waveSize] = prefixResult;
     }
     GroupMemoryBarrierWithGroupSync();
     
