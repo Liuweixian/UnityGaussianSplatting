@@ -73,7 +73,7 @@ inline void ReduceWriteDigitCounts(uint gtid, uint gid)
     {
         g_us[i] += g_us[i + RADIX];
         b_passHist[i * e_threadBlocks + gid] = g_us[i];
-        g_us[i] += WavePrefixSum(g_us[i]);
+        g_us[i] += TJWavePrefixSum(gtid, g_us[i]);
     }
 }
 
@@ -85,7 +85,7 @@ inline void GlobalHistExclusiveScanWGE16(uint gtid, uint waveSize)
     if (gtid < (RADIX / waveSize))
     {
         g_us[(gtid + 1) * waveSize - 1] +=
-            WavePrefixSum(g_us[(gtid + 1) * waveSize - 1]);
+            TJWavePrefixSum(gtid, g_us[(gtid + 1) * waveSize - 1]);
     }
     GroupMemoryBarrierWithGroupSync();
         
@@ -98,7 +98,7 @@ inline void GlobalHistExclusiveScanWGE16(uint gtid, uint waveSize)
         const uint index = circularLaneShift + (i & ~laneMask);
         uint t = TJWaveGetLaneIndex(gtid, waveSize) != laneMask ? g_us[i] : 0;
         if (i >= waveSize)
-            t += WaveReadLaneAt(g_us[i - 1], 0);
+            t += TJWaveReadLaneAt(gtid, g_us[i - 1], 0);
         InterlockedAdd(b_globalHist[index + globalHistOffset], t);
     }
 }
@@ -123,7 +123,7 @@ inline void GlobalHistExclusiveScanWLT16(uint gtid, uint waveSize)
         if (gtid < (RADIX >> offset))
         {
             g_us[((gtid + 1) << offset) - 1] +=
-                WavePrefixSum(g_us[((gtid + 1) << offset) - 1]);
+                TJWavePrefixSum(gtid, g_us[((gtid + 1) << offset) - 1]);
         }
         GroupMemoryBarrierWithGroupSync();
             
@@ -134,7 +134,7 @@ inline void GlobalHistExclusiveScanWLT16(uint gtid, uint waveSize)
                 if (i < (j << laneLog))
                 {
                     InterlockedAdd(b_globalHist[i + globalHistOffset],
-                        WaveReadLaneAt(g_us[((i >> offset) << offset) - 1], 0) +
+                        TJWaveReadLaneAt(gtid, g_us[((i >> offset) << offset) - 1], 0) +
                         ((i & (j - 1)) ? g_us[i - 1] : 0));
                 }
                 else
@@ -142,7 +142,7 @@ inline void GlobalHistExclusiveScanWLT16(uint gtid, uint waveSize)
                     if ((i + 1) & (j - 1))
                     {
                         g_us[i] +=
-                            WaveReadLaneAt(g_us[((i >> offset) << offset) - 1], 0);
+                            TJWaveReadLaneAt(gtid, g_us[((i >> offset) << offset) - 1], 0);
                     }
                 }
             }
@@ -155,7 +155,7 @@ inline void GlobalHistExclusiveScanWLT16(uint gtid, uint waveSize)
     for (uint i = gtid + j; i < RADIX; i += US_DIM)
     {
         InterlockedAdd(b_globalHist[i + globalHistOffset],
-            WaveReadLaneAt(g_us[((i >> offset) << offset) - 1], 0) +
+            TJWaveReadLaneAt(gtid, g_us[((i >> offset) << offset) - 1], 0) +
             ((i & (j - 1)) ? g_us[i - 1] : 0));
     }
 }
@@ -199,19 +199,19 @@ inline void ExclusiveThreadBlockScanFullWGE16(
     for (uint i = gtid; i < partEnd; i += SCAN_DIM)
     {
         g_scan[gtid] = b_passHist[i + deviceOffset];
-        g_scan[gtid] += WavePrefixSum(g_scan[gtid]);
+        g_scan[gtid] += TJWavePrefixSum(gtid, g_scan[gtid]);
         GroupMemoryBarrierWithGroupSync();
             
         if (gtid < SCAN_DIM / waveSize)
         {
             g_scan[(gtid + 1) * waveSize - 1] +=
-                WavePrefixSum(g_scan[(gtid + 1) * waveSize - 1]);
+                TJWavePrefixSum(gtid, g_scan[(gtid + 1) * waveSize - 1]);
         }
         GroupMemoryBarrierWithGroupSync();
         
         uint t = (TJWaveGetLaneIndex(gtid, waveSize) != laneMask ? g_scan[gtid] : 0) + reduction;
         if (gtid >= waveSize)
-            t += WaveReadLaneAt(g_scan[gtid - 1], 0);
+            t += TJWaveReadLaneAt(gtid, g_scan[gtid - 1], 0);
         b_passHist[circularLaneShift + (i & ~laneMask) + deviceOffset] = t;
 
         reduction += g_scan[SCAN_DIM - 1];
@@ -231,13 +231,13 @@ inline void ExclusiveThreadBlockScanPartialWGE16(
     uint i = gtid + partEnd;
     if (i < e_threadBlocks)
         g_scan[gtid] = b_passHist[deviceOffset + i];
-    g_scan[gtid] += WavePrefixSum(g_scan[gtid]);
+    g_scan[gtid] += TJWavePrefixSum(gtid, g_scan[gtid]);
     GroupMemoryBarrierWithGroupSync();
             
     if (gtid < SCAN_DIM / waveSize)
     {
         g_scan[(gtid + 1) * waveSize - 1] +=
-            WavePrefixSum(g_scan[(gtid + 1) * waveSize - 1]);
+            TJWavePrefixSum(gtid, g_scan[(gtid + 1) * waveSize - 1]);
     }
     GroupMemoryBarrierWithGroupSync();
         
@@ -290,7 +290,7 @@ inline void ExclusiveThreadBlockScanFullWLT16(
     for (uint k = 0; k < partitions; ++k)
     {
         g_scan[gtid] = b_passHist[gtid + k * SCAN_DIM + deviceOffset];
-        g_scan[gtid] += WavePrefixSum(g_scan[gtid]);
+        g_scan[gtid] += TJWavePrefixSum(gtid, g_scan[gtid]);
         GroupMemoryBarrierWithGroupSync();
         if (gtid < waveSize)
         {
@@ -305,7 +305,7 @@ inline void ExclusiveThreadBlockScanFullWLT16(
             if (gtid < (SCAN_DIM >> offset))
             {
                 g_scan[((gtid + 1) << offset) - 1] +=
-                    WavePrefixSum(g_scan[((gtid + 1) << offset) - 1]);
+                    TJWavePrefixSum(gtid, g_scan[((gtid + 1) << offset) - 1]);
             }
             GroupMemoryBarrierWithGroupSync();
             
@@ -314,7 +314,7 @@ inline void ExclusiveThreadBlockScanFullWLT16(
                 if (gtid < (j << laneLog))
                 {
                     b_passHist[gtid + k * SCAN_DIM + deviceOffset] =
-                        WaveReadLaneAt(g_scan[((gtid >> offset) << offset) - 1], 0) +
+                        TJWaveReadLaneAt(gtid, g_scan[((gtid >> offset) << offset) - 1], 0) +
                         ((gtid & (j - 1)) ? g_scan[gtid - 1] : 0) + reduction;
                 }
                 else
@@ -322,7 +322,7 @@ inline void ExclusiveThreadBlockScanFullWLT16(
                     if ((gtid + 1) & (j - 1))
                     {
                         g_scan[gtid] +=
-                            WaveReadLaneAt(g_scan[((gtid >> offset) << offset) - 1], 0);
+                            TJWaveReadLaneAt(gtid, g_scan[((gtid >> offset) << offset) - 1], 0);
                     }
                 }
             }
@@ -334,12 +334,12 @@ inline void ExclusiveThreadBlockScanFullWLT16(
         for (uint i = gtid + j; i < SCAN_DIM; i += SCAN_DIM)
         {
             b_passHist[i + k * SCAN_DIM + deviceOffset] =
-                WaveReadLaneAt(g_scan[((i >> offset) << offset) - 1], 0) +
+                TJWaveReadLaneAt(gtid, g_scan[((i >> offset) << offset) - 1], 0) +
                 ((i & (j - 1)) ? g_scan[i - 1] : 0) + reduction;
         }
             
-        reduction += WaveReadLaneAt(g_scan[SCAN_DIM - 1], 0) +
-            WaveReadLaneAt(g_scan[(((SCAN_DIM - 1) >> offset) << offset) - 1], 0);
+        reduction += TJWaveReadLaneAt(gtid, g_scan[SCAN_DIM - 1], 0) +
+            TJWaveReadLaneAt(gtid, g_scan[(((SCAN_DIM - 1) >> offset) << offset) - 1], 0);
         GroupMemoryBarrierWithGroupSync();
     }
 }
@@ -357,7 +357,7 @@ inline void ExclusiveThreadBlockScanParitalWLT16(
     if (gtid < finalPartSize)
     {
         g_scan[gtid] = b_passHist[gtid + partitions * SCAN_DIM + deviceOffset];
-        g_scan[gtid] += WavePrefixSum(g_scan[gtid]);
+        g_scan[gtid] += TJWavePrefixSum(gtid, g_scan[gtid]);
     }
     GroupMemoryBarrierWithGroupSync();
     if (gtid < waveSize && circularLaneShift < finalPartSize)
@@ -372,7 +372,7 @@ inline void ExclusiveThreadBlockScanParitalWLT16(
         if (gtid < (finalPartSize >> offset))
         {
             g_scan[((gtid + 1) << offset) - 1] +=
-                WavePrefixSum(g_scan[((gtid + 1) << offset) - 1]);
+                TJWavePrefixSum(gtid, g_scan[((gtid + 1) << offset) - 1]);
         }
         GroupMemoryBarrierWithGroupSync();
             
@@ -381,7 +381,7 @@ inline void ExclusiveThreadBlockScanParitalWLT16(
             if (gtid < (j << laneLog))
             {
                 b_passHist[gtid + partitions * SCAN_DIM + deviceOffset] =
-                    WaveReadLaneAt(g_scan[((gtid >> offset) << offset) - 1], 0) +
+                    TJWaveReadLaneAt(gtid, g_scan[((gtid >> offset) << offset) - 1], 0) +
                     ((gtid & (j - 1)) ? g_scan[gtid - 1] : 0) + reduction;
             }
             else
@@ -389,7 +389,7 @@ inline void ExclusiveThreadBlockScanParitalWLT16(
                 if ((gtid + 1) & (j - 1))
                 {
                     g_scan[gtid] +=
-                        WaveReadLaneAt(g_scan[((gtid >> offset) << offset) - 1], 0);
+                        TJWaveReadLaneAt(gtid, g_scan[((gtid >> offset) << offset) - 1], 0);
                 }
             }
         }
@@ -487,7 +487,7 @@ void Downsweep(uint3 gtid : SV_GroupThreadID, uint3 gid : SV_GroupID)
         if (gtid.x < RADIX)
         {
             histReduction = WaveHistInclusiveScanCircularShiftWGE16(gtid.x, waveSize);
-            histReduction += WavePrefixSum(histReduction); //take advantage of barrier to begin scan
+            histReduction += TJWavePrefixSum(gtid.x, histReduction); //take advantage of barrier to begin scan
         }
         GroupMemoryBarrierWithGroupSync();
         

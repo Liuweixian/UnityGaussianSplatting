@@ -94,6 +94,12 @@ struct DigitStruct
 //*****************************************************************************
 //HELPER FUNCTIONS
 //*****************************************************************************
+inline uint TJWaveGetLaneCount()
+{
+    return WaveGetLaneCount();
+    //return 32;
+}
+
 //Due to a bug with SPIRV pre 1.6, we cannot use WaveGetLaneCount() to get the currently active wavesize 
 inline uint getWaveSize()
 {
@@ -101,13 +107,25 @@ inline uint getWaveSize()
     GroupMemoryBarrierWithGroupSync(); //Make absolutely sure the wave is not diverged here
     return dot(countbits(WaveActiveBallot(true)), uint4(1, 1, 1, 1));
 #else
-    return WaveGetLaneCount();
+    return TJWaveGetLaneCount();
 #endif
 }
 
 inline uint getWaveIndex(uint gtid, uint waveSize)
 {
     return gtid / waveSize;
+}
+
+inline uint TJWaveReadLaneAt(uint gtid, uint val, uint lane)
+{
+    return WaveReadLaneAt(val, lane);
+    //return val;
+}
+
+inline uint TJWavePrefixSum(uint gtid, uint val)
+{
+    return WavePrefixSum(val);
+    //return val;
 }
 
 inline uint TJWaveGetLaneIndex(uint gtid, uint waveSize)
@@ -117,6 +135,12 @@ inline uint TJWaveGetLaneIndex(uint gtid, uint waveSize)
 #else
     return gtid & (waveSize - 1);
 #endif
+}
+
+inline uint4 TJWaveActiveBallot(uint gtid, bool pred)
+{
+    return WaveActiveBallot(pred);
+    //return uint4(0, 0, 0, 0);
 }
 
 //Radix Tricks by Michael Herf
@@ -323,7 +347,7 @@ inline uint WaveFlagsWLT16(uint waveSize)
     return (1U << waveSize) - 1;;
 }
 
-inline void WarpLevelMultiSplitWGE16(uint key, inout uint4 waveFlags)
+inline void WarpLevelMultiSplitWGE16(uint gtid, uint key, inout uint4 waveFlags)
 {
     [unroll]
     for (uint k = 0; k < RADIX_LOG; ++k)
@@ -331,7 +355,7 @@ inline void WarpLevelMultiSplitWGE16(uint key, inout uint4 waveFlags)
         const uint currentBit = 1 << k + e_radixShift;
         const bool t = (key & currentBit) != 0;
         GroupMemoryBarrierWithGroupSync();  //Play on the safe side, throw in a barrier for convergence
-        const uint4 ballot = WaveActiveBallot(t);
+        const uint4 ballot = TJWaveActiveBallot(gtid, t);
         if(t)
             waveFlags &= ballot;
         else
@@ -359,13 +383,13 @@ inline uint2 CountBitsWGE16(uint gtid, uint waveSize, uint ltMask, uint4 waveFla
     return count;
 }
 
-inline void WarpLevelMultiSplitWLT16(uint key, inout uint waveFlags)
+inline void WarpLevelMultiSplitWLT16(uint gtid, uint key, inout uint waveFlags)
 {
     [unroll]
     for (uint k = 0; k < RADIX_LOG; ++k)
     {
         const bool t = key >> (k + e_radixShift) & 1;
-        waveFlags &= (t ? 0 : 0xffffffff) ^ (uint) WaveActiveBallot(t);
+        waveFlags &= (t ? 0 : 0xffffffff) ^ (uint) TJWaveActiveBallot(gtid, t);
     }
 }
 
@@ -383,7 +407,7 @@ inline OffsetStruct RankKeysWGE16(
     for (uint i = 0; i < KEYS_PER_THREAD; ++i)
     {
         uint4 waveFlags = initialFlags;
-        WarpLevelMultiSplitWGE16(keys.k[i], waveFlags);
+        WarpLevelMultiSplitWGE16(gtid, keys.k[i], waveFlags);
         
         const uint index = ExtractDigit(keys.k[i]) + waveOffset;
         const uint2 bitCount = CountBitsWGE16(gtid, waveSize, ltMask, waveFlags);
@@ -408,7 +432,7 @@ inline OffsetStruct RankKeysWLT16(uint gtid, uint waveSize, uint waveIndex, KeyS
     for (uint i = 0; i < KEYS_PER_THREAD; ++i)
     {
         uint waveFlags = initialFlags;
-        WarpLevelMultiSplitWLT16(keys.k[i], waveFlags);
+        WarpLevelMultiSplitWLT16(gtid, keys.k[i], waveFlags);
         
         const uint index = ExtractPackedIndex(keys.k[i]) +
                 (waveIndex / serialIterations * HALF_RADIX);
@@ -466,11 +490,11 @@ inline void WaveHistReductionExclusiveScanWGE16(uint gtid, uint waveSize, uint h
     if (gtid < RADIX / waveSize)
     {
         g_d[gtid * waveSize] =
-            WavePrefixSum(g_d[gtid * waveSize]);
+            TJWavePrefixSum(gtid, g_d[gtid * waveSize]);
     }
     GroupMemoryBarrierWithGroupSync();
     
-    uint t = WaveReadLaneAt(g_d[gtid], 0);
+    uint t = TJWaveReadLaneAt(gtid, g_d[gtid], 0);
     if (gtid < RADIX && TJWaveGetLaneIndex(gtid, waveSize))
         g_d[gtid] += t;
 }
