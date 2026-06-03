@@ -34,8 +34,8 @@
 #pragma kernel Downsweep
 
 // GPU sorting needs wave ops
-#pragma require wavebasic
-#pragma require waveballot
+//#pragma require wavebasic
+//#pragma require waveballot
 
 #include "DeviceRadixSort.hlsl"
 #include "GaussianSplatting.hlsl"
