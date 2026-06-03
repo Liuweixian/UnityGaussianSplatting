@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: MIT
+#pragma use_dxc
+
+#if defined(SHADER_API_GLES3) || defined(SHADER_API_GLES)
+#define GROUP_SIZE 256
+#else
 #define GROUP_SIZE 1024
+#endif
 
 #pragma kernel CSSetIndices
 #pragma kernel CSCalcDistances
@@ -22,7 +28,6 @@
 #pragma multi_compile __ PAYLOAD_UINT PAYLOAD_INT PAYLOAD_FLOAT
 #pragma multi_compile __ SHOULD_ASCEND
 #pragma multi_compile __ SORT_PAIRS
-#pragma multi_compile __ VULKAN
 #pragma kernel InitDeviceRadixSort
 #pragma kernel Upsweep
 #pragma kernel Scan
@@ -31,7 +36,6 @@
 // GPU sorting needs wave ops
 #pragma require wavebasic
 #pragma require waveballot
-#pragma use_dxc
 
 #include "DeviceRadixSort.hlsl"
 #include "GaussianSplatting.hlsl"
@@ -181,7 +185,7 @@ bool IsSplatCut(float3 pos)
         {
             if (all(abs(cutoutPos) <= 1)) return invert;
         }
-        finalCut |= !invert;
+        finalCut = finalCut || !invert;
     }
     return finalCut;
 }
@@ -194,11 +198,15 @@ void CSCalcViewData (uint3 id : SV_DispatchThreadID)
         return;
 
     SplatData splat = LoadSplatData(idx);
-    SplatViewData view = (SplatViewData)0;
+    SplatViewData view;
+    view.pos = float4(0,0,0,0);
+    view.axis1 = float2(0,0);
+    view.axis2 = float2(0,0);
+    view.color = uint2(0,0);
     
     float3 centerWorldPos = mul(_MatrixObjectToWorld, float4(splat.pos,1)).xyz;
     float4 centerClipPos = mul(UNITY_MATRIX_VP, float4(centerWorldPos, 1));
-    half opacityScale = _SplatOpacityScale;
+    float opacityScale = _SplatOpacityScale;
     float splatScale = _SplatScale;
 
     // deleted?
@@ -207,7 +215,7 @@ void CSCalcViewData (uint3 id : SV_DispatchThreadID)
         uint wordIdx = idx / 32;
         uint bitIdx = idx & 31;
         uint wordVal = _SplatDeletedBits.Load(wordIdx * 4);
-        if (wordVal & (1 << bitIdx))
+        if ((wordVal & (1 << bitIdx)) != 0)
         {
             centerClipPos.w = 0;
         }
@@ -289,7 +297,7 @@ void CSUpdateEditData (uint3 id : SV_DispatchThreadID)
             valSel &= ~mask;
             valCut |= mask;
         }
-        if (valSel & mask)
+        if ((valSel & mask) != 0)
         {
             bmin = min(bmin, spos);
             bmax = max(bmax, spos);
@@ -676,7 +684,11 @@ RWByteAddressBuffer _CopyDstPos;
 RWByteAddressBuffer _CopyDstOther;
 RWByteAddressBuffer _CopyDstSH;
 RWByteAddressBuffer _CopyDstEditDeleted;
+#if defined(SHADER_API_VULKAN) || defined(SHADER_API_D3D11) || defined(SHADER_API_D3D12) || defined(SHADER_API_GLCORE) || defined(SHADER_API_METAL)
 RWTexture2D<float4> _CopyDstColor;
+#else
+RWStructuredBuffer<uint> _CopyDstColor; // GLES fallback: encode as R8G8B8A8 packed uint
+#endif
 uint _CopyDstSize, _CopySrcStartIndex, _CopyDstStartIndex, _CopyCount;
 
 float4x4 _CopyTransformMatrix;
@@ -725,7 +737,15 @@ void CSCopySplats (uint3 id : SV_DispatchThreadID)
         asuint(src.scale.z)));
     // color
     uint3 pixelIndex = SplatIndexToPixelIndex(dstIdx);
+#if defined(SHADER_API_VULKAN) || defined(SHADER_API_D3D11) || defined(SHADER_API_D3D12) || defined(SHADER_API_GLCORE) || defined(SHADER_API_METAL)
     _CopyDstColor[pixelIndex.xy] = float4(src.sh.col, src.opacity);
+#else
+    // GLES fallback: pack color as R8G8B8A8 into a single uint
+    float3 col = min(max((float3)src.sh.col, 0.0), 1.0);
+    float opacity = min(max((float)src.opacity, 0.0), 1.0);
+    uint4 c = uint4(col * 255.0 + 0.5, opacity * 255.0 + 0.5);
+    _CopyDstColor[dstIdx] = (c.a << 24) | (c.b << 16) | (c.g << 8) | c.r;
+#endif
 
     // SH
     uint shStride = 192; // 15*3 fp32, rounded up to multiple of 16
