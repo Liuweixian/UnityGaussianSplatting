@@ -94,20 +94,57 @@ struct DigitStruct
 //*****************************************************************************
 //HELPER FUNCTIONS
 //*****************************************************************************
+//
+//WAVE INTRINSIC EMULATION
+//
+//Several mobile drivers do NOT expose a reliable mapping between the value
+//returned by WaveGetLaneCount() and the coordinate system used by
+//WaveGetLaneIndex() / the other wave intrinsics. The most notorious example is
+//the Adreno 6xx family on Vulkan (and the Metal backend used by some Android
+//build targets), where WaveGetLaneCount() reports the SIMD width while
+//WaveGetLaneIndex() is actually translated to the *quad* lane index (0..3).
+//That mismatch corrupts every lane-index based scatter (see
+//docs/hmiandroid-splat-sort-globalhist-bug.md), silently breaking the radix
+//sort and, with it, the Gaussian splat draw order.
+//
+//To get deterministic, portable results we stop relying on hardware wave
+//intrinsics entirely and emulate them with a *logical wave size of 1*. With a
+//single lane per logical wave every cross-lane operation collapses into a
+//trivial, synchronization-free expression, so the emulated helpers are safe to
+//call even from divergent control flow (which rules out a shared-memory based
+//emulation that would otherwise require a group-wide barrier). All real
+//cross-thread cooperation is expressed through groupshared memory plus
+//GroupMemoryBarrierWithGroupSync(), which is portable on every backend. A wave
+//size of 1 forces the sort down its WLT16 ("wave less than 16") code paths,
+//none of which depend on a hardware lane index.
+//
+//Define USE_WAVE_INTRINSICS (e.g. on desktop GPUs with trustworthy wave
+//support) to fall back to the native intrinsics for higher throughput.
+//*****************************************************************************
+#define EMULATED_WAVE_SIZE  1U
+
 inline uint TJWaveGetLaneCount()
 {
+#if defined(USE_WAVE_INTRINSICS)
     return WaveGetLaneCount();
-    //return 32;
+#else
+    return EMULATED_WAVE_SIZE;
+#endif
 }
 
 //Due to a bug with SPIRV pre 1.6, we cannot use WaveGetLaneCount() to get the currently active wavesize 
 inline uint getWaveSize()
 {
+#if defined(USE_WAVE_INTRINSICS)
 #if defined(VULKAN)
     GroupMemoryBarrierWithGroupSync(); //Make absolutely sure the wave is not diverged here
     return dot(countbits(WaveActiveBallot(true)), uint4(1, 1, 1, 1));
 #else
     return TJWaveGetLaneCount();
+#endif
+#else
+    //Emulated path: a fixed, hardware independent logical wave size.
+    return EMULATED_WAVE_SIZE;
 #endif
 }
 
@@ -118,14 +155,24 @@ inline uint getWaveIndex(uint gtid, uint waveSize)
 
 inline uint TJWaveReadLaneAt(uint gtid, uint val, uint lane)
 {
+#if defined(USE_WAVE_INTRINSICS)
     return WaveReadLaneAt(val, lane);
-    //return val;
+#else
+    //Logical wave size is 1: the only lane that can be addressed is this thread
+    //itself (every call site reads lane 0), so reading "another lane" simply
+    //returns our own value and needs no cross-thread access.
+    return val;
+#endif
 }
 
 inline uint TJWavePrefixSum(uint gtid, uint val)
 {
+#if defined(USE_WAVE_INTRINSICS)
     return WavePrefixSum(val);
-    //return val;
+#else
+    //The exclusive prefix sum across a single-lane wave is, by definition, 0.
+    return 0;
+#endif
 }
 
 inline uint TJWaveGetLaneIndex(uint gtid, uint waveSize)
@@ -139,8 +186,12 @@ inline uint TJWaveGetLaneIndex(uint gtid, uint waveSize)
 
 inline uint4 TJWaveActiveBallot(uint gtid, bool pred)
 {
+#if defined(USE_WAVE_INTRINSICS)
     return WaveActiveBallot(pred);
-    //return uint4(0, 0, 0, 0);
+#else
+    //Single-lane wave: only bit 0 (this thread) can ever be set in the ballot.
+    return uint4(pred ? 1u : 0u, 0u, 0u, 0u);
+#endif
 }
 
 //Radix Tricks by Michael Herf
