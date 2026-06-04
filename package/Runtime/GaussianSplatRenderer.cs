@@ -1112,5 +1112,33 @@ namespace GaussianSplatting.Runtime
         }
 
         public GraphicsBuffer GpuEditDeleted => m_GpuEditDeleted;
+
+        static readonly string[] s_RenderModeNames = System.Enum.GetNames(typeof(RenderMode));
+        static GUIStyle s_ToolbarButtonStyle;
+        static GUIStyle s_LabelStyle;
+
+        static void InitGUIStyles()
+        {
+            if (s_ToolbarButtonStyle != null) return;
+            s_ToolbarButtonStyle = new GUIStyle(GUI.skin.button) { fontSize = 18, fixedHeight = 36, padding = new RectOffset(10, 10, 4, 4) };
+            s_LabelStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fixedHeight = 36, alignment = TextAnchor.MiddleLeft };
+        }
+
+        void OnGUI()
+        {
+            if (!HasValidAsset || !HasValidRenderSetup)
+                return;
+
+            InitGUIStyles();
+            GUILayout.BeginArea(new Rect(10, 10, 900, 50));
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Render Mode:", s_LabelStyle, GUILayout.Width(150));
+            int cur = (int)m_RenderMode;
+            int next = GUILayout.Toolbar(cur, s_RenderModeNames, s_ToolbarButtonStyle);
+            if (next != cur)
+                m_RenderMode = (RenderMode)next;
+            GUILayout.EndHorizontal();
+            GUILayout.EndArea();
+        }
     }
 }
