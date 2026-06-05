@@ -1,11 +1,12 @@
 %YAML 1.1
-%TAG !u! tag:unity3d.com,2011:
+%TAG !u! tag:yousandi.cn,2023:
 --- !u!129 &1
 PlayerSettings:
   m_ObjectHideFlags: 0
-  serializedVersion: 28
+  serializedVersion: 26
   productGUID: ad829496f42434ae9879482ceab328b7
   AndroidProfiler: 0
+  hmiUseInternalProfiler: 0
   AndroidFilterTouchesWhenObscured: 0
   AndroidEnableSustainedPerformanceMode: 0
   defaultScreenOrientation: 4
@@ -41,6 +42,8 @@ PlayerSettings:
     height: 1
   m_SplashScreenLogos: []
   m_VirtualRealitySplashScreen: {fileID: 0}
+  expectedBundleIdentifier: com.DefaultCompany.UnityGaussianSplatting
+  integrityHash: 
   m_HolographicTrackingLossScreen: {fileID: 0}
   defaultScreenWidth: 1920
   defaultScreenHeight: 1080
@@ -49,9 +52,10 @@ PlayerSettings:
   m_StereoRenderingPath: 0
   m_ActiveColorSpace: 1
   unsupportedMSAAFallback: 0
-  m_SpriteBatchMaxVertexCount: 65535
   m_SpriteBatchVertexThreshold: 300
   m_MTRendering: 1
+  renderThreadParallel: 0
+  renderThreadExp: 0
   mipStripping: 0
   numberOfMipsStripped: 0
   numberOfMipsStrippedPerMipmapLimitGroup: {}
@@ -70,20 +74,25 @@ PlayerSettings:
   androidStartInFullscreen: 1
   androidRenderOutsideSafeArea: 1
   androidUseSwappy: 1
-  androidDisplayOptions: 1
+  androidDisableUnityAndroidVSync: 0
+  useSRGBBackBuffer: 1
   androidBlitType: 0
-  androidResizeableActivity: 0
+  androidResizableWindow: 0
   androidDefaultWindowWidth: 1920
   androidDefaultWindowHeight: 1080
   androidMinimumWindowWidth: 400
   androidMinimumWindowHeight: 300
   androidFullscreenMode: 1
   androidAutoRotationBehavior: 1
+  androidUrasMode: 0
+  disableBluetoothAudioUpdate: 0
+  enableURASMultiView: 0
+  androidEnableSensors: 0
   androidPredictiveBackSupport: 1
-  androidApplicationEntry: 1
   defaultIsNativeResolution: 1
   macRetinaSupport: 1
   runInBackground: 1
+  captureSingleScreen: 0
   muteOtherAudioSources: 0
   Prepare IOS For Recording: 0
   Force IOS Speakers When Recording: 0
@@ -92,15 +101,24 @@ PlayerSettings:
   hideHomeButton: 0
   submitAnalytics: 1
   usePlayerLog: 1
+  autoStreaming: 0
+  useFontStreaming: 0
+  cacheASTextureAB: 0
+  maxCacheSize: 0
+  maxConcurrentLoad: 0
+  autoStreamingId: 
+  instantGameAppId: 
   dedicatedServerOptimizations: 0
   bakeCollisionMeshes: 0
   forceSingleInstance: 0
   useFlipModelSwapchain: 1
   resizableWindow: 0
   useMacAppStoreValidation: 0
+  wglDisableFBODepthStencil: 0
   macAppStoreCategory: public.app-category.games
   gpuSkinning: 1
-  meshDeformation: 2
+  gpuSkinningTransformFeedback: 0
+  vertexShaderSkinning: 0
   xboxPIXTextureCapture: 0
   xboxEnableAvatar: 0
   xboxEnableKinect: 0
@@ -132,9 +150,24 @@ PlayerSettings:
   switchAllowGpuScratchShrinking: 0
   switchNVNMaxPublicTextureIDCount: 0
   switchNVNMaxPublicSamplerIDCount: 0
-  switchMaxWorkerMultiple: 8
   switchNVNGraphicsFirmwareMemory: 32
-  switchGraphicsJobsSyncAfterKick: 1
+  switchMaxWorkerMultiple: 8
+  openHarmonyStartInFullscreen: 1
+  openHarmonyRenderOutsideSafeArea: 1
+  openHarmonyResizableWindow: 0
+  openHarmonyEnableLowLatencyAudio: 1
+  openHarmonyLaunchAccelerationAbility: 0
+  openHarmonyFullscreenMode: 1
+  openHarmonyAutoRotationBehavior: 1
+  openHarmonyBlitType: 0
+  openHarmonyDefaultWindowWidth: 1920
+  openHarmonyDefaultWindowHeight: 1080
+  openHarmonyMinimumWindowWidth: 400
+  openHarmonyMinimumWindowHeight: 300
+  openHarmonyMaximumWindowRatio: 10
+  openHarmonyMinimumWindowRatio: 0.1
+  stadiaPresentMode: 0
+  stadiaTargetFramerate: 0
   vulkanNumSwapchainBuffers: 3
   vulkanEnableSetSRGBWrite: 0
   vulkanEnablePreTransform: 1
@@ -164,8 +197,8 @@ PlayerSettings:
   resetResolutionOnWindowResize: 0
   androidSupportedAspectRatio: 1
   androidMaxAspectRatio: 2.1
-  androidMinAspectRatio: 1
   applicationIdentifier:
+    HMIAndroid: com.DefaultCompany.UnityGaussianSplatting
     Standalone: com.DefaultCompany.UnityGaussianSplatting
   buildNumber:
     Bratwurst: 0
@@ -179,13 +212,13 @@ PlayerSettings:
   AndroidTargetSdkVersion: 0
   AndroidPreferredInstallLocation: 1
   aotOptions: 
-  stripEngineCode: 1
+  stripEngineCode: 0
   iPhoneStrippingLevel: 0
   iPhoneScriptCallOptimization: 0
   ForceInternetPermission: 0
   ForceSDCardPermission: 0
   CreateWallpaper: 0
-  androidSplitApplicationBinary: 0
+  APKExpansionFiles: 0
   keepLoadedShadersAlive: 0
   StripUnusedMeshComponents: 1
   strictShaderVariantMatching: 0
@@ -223,6 +256,7 @@ PlayerSettings:
     rgba: 0
   iOSLaunchScreenFillPct: 100
   iOSLaunchScreenSize: 100
+  iOSLaunchScreenCustomXibPath: 
   iOSLaunchScreeniPadType: 0
   iOSLaunchScreeniPadImage: {fileID: 0}
   iOSLaunchScreeniPadBackgroundColor:
@@ -230,6 +264,7 @@ PlayerSettings:
     rgba: 0
   iOSLaunchScreeniPadFillPct: 100
   iOSLaunchScreeniPadSize: 100
+  iOSLaunchScreeniPadCustomXibPath: 
   iOSLaunchScreenCustomStoryboardPath: 
   iOSLaunchScreeniPadCustomStoryboardPath: 
   iOSDeviceRequirements: []
@@ -254,6 +289,11 @@ PlayerSettings:
   iOSAutomaticallyDetectAndAddCapabilities: 1
   appleEnableProMotion: 0
   shaderPrecisionModel: 0
+  optimizeInstantGameEnabled: 1
+  useMobileShaderForInstantGame: 1
+  limitMaxVisibleLights16: 1
+  declareTempsInMain: 1
+  declareImmCBAsConst: 1
   clonedFromGUID: c0afd0d1d80e3634a9dac47e8a0426ea
   templatePackageId: com.unity.template.3d@8.1.1
   templateDefaultScene: Assets/Scenes/SampleScene.unity
@@ -265,19 +305,16 @@ PlayerSettings:
   useCustomGradlePropertiesTemplate: 0
   useCustomGradleSettingsTemplate: 0
   useCustomProguardFile: 0
-  AndroidTargetArchitectures: 1
+  AndroidTargetArchitectures: 2
+  AndroidTargetDevices: 0
   AndroidSplashScreenScale: 0
   androidSplashScreen: {fileID: 0}
   AndroidKeystoreName: 
   AndroidKeyaliasName: 
   AndroidEnableArmv9SecurityFeatures: 0
-  AndroidEnableArm64MTE: 0
   AndroidBuildApkPerCpuArchitecture: 0
   AndroidTVCompatibility: 0
   AndroidIsGame: 1
-  androidAppCategory: 3
-  useAndroidAppCategory: 1
-  androidAppCategoryOther: 
   AndroidEnableTango: 0
   androidEnableBanner: 1
   androidUseLowAccuracyLocation: 0
@@ -287,12 +324,11 @@ PlayerSettings:
     height: 180
     banner: {fileID: 0}
   androidGamepadSupportLevel: 0
+  chromeosInputEmulation: 1
   AndroidMinifyRelease: 0
   AndroidMinifyDebug: 0
   AndroidValidateAppBundleSize: 1
   AndroidAppBundleSizeToValidate: 150
-  AndroidReportGooglePlayAppDependencies: 1
-  androidSymbolsSizeThreshold: 800
   m_BuildTargetIcons: []
   m_BuildTargetPlatformIcons:
   - m_BuildTarget: VisionOS
@@ -491,6 +527,98 @@ PlayerSettings:
       m_Height: 36
       m_Kind: 0
       m_SubKind: 
+  - m_BuildTarget: HMIAndroid
+    m_Icons:
+    - m_Textures: []
+      m_Width: 432
+      m_Height: 432
+      m_Kind: 2
+      m_SubKind: 
+    - m_Textures: []
+      m_Width: 324
+      m_Height: 324
+      m_Kind: 2
+      m_SubKind: 
+    - m_Textures: []
+      m_Width: 216
+      m_Height: 216
+      m_Kind: 2
+      m_SubKind: 
+    - m_Textures: []
+      m_Width: 162
+      m_Height: 162
+      m_Kind: 2
+      m_SubKind: 
+    - m_Textures: []
+      m_Width: 108
+      m_Height: 108
+      m_Kind: 2
+      m_SubKind: 
+    - m_Textures: []
+      m_Width: 81
+      m_Height: 81
+      m_Kind: 2
+      m_SubKind: 
+    - m_Textures: []
+      m_Width: 192
+      m_Height: 192
+      m_Kind: 1
+      m_SubKind: 
+    - m_Textures: []
+      m_Width: 144
+      m_Height: 144
+      m_Kind: 1
+      m_SubKind: 
+    - m_Textures: []
+      m_Width: 96
+      m_Height: 96
+      m_Kind: 1
+      m_SubKind: 
+    - m_Textures: []
+      m_Width: 72
+      m_Height: 72
+      m_Kind: 1
+      m_SubKind: 
+    - m_Textures: []
+      m_Width: 48
+      m_Height: 48
+      m_Kind: 1
+      m_SubKind: 
+    - m_Textures: []
+      m_Width: 36
+      m_Height: 36
+      m_Kind: 1
+      m_SubKind: 
+    - m_Textures: []
+      m_Width: 192
+      m_Height: 192
+      m_Kind: 0
+      m_SubKind: 
+    - m_Textures: []
+      m_Width: 144
+      m_Height: 144
+      m_Kind: 0
+      m_SubKind: 
+    - m_Textures: []
+      m_Width: 96
+      m_Height: 96
+      m_Kind: 0
+      m_SubKind: 
+    - m_Textures: []
+      m_Width: 72
+      m_Height: 72
+      m_Kind: 0
+      m_SubKind: 
+    - m_Textures: []
+      m_Width: 48
+      m_Height: 48
+      m_Kind: 0
+      m_SubKind: 
+    - m_Textures: []
+      m_Width: 36
+      m_Height: 36
+      m_Kind: 0
+      m_SubKind: 
   m_BuildTargetBatching:
   - m_BuildTarget: Standalone
     m_StaticBatching: 1
@@ -568,29 +696,35 @@ PlayerSettings:
   openGLRequireES31AEP: 0
   openGLRequireES32: 0
   m_TemplateCustomTags: {}
+  renderThreadMap:
+    Standalone: 0
+    WebGL: 0
+    WeixinMiniGame: 0
   mobileMTRendering:
     Android: 1
     iPhone: 1
     tvOS: 1
+  m_VirtualGeometryRuntimeMap:
+    Android: 1
+    Standalone: 1
+    iPhone: 1
+  m_VirtualGeometryDataEncodingMap:
+    Android: 1
+    Standalone: 2
+    iPhone: 1
   m_BuildTargetGroupLightmapEncodingQuality:
-  - serializedVersion: 2
-    m_BuildTarget: Android
+  - m_BuildTarget: Android
     m_EncodingQuality: 1
-  - serializedVersion: 2
-    m_BuildTarget: iOS
+  - m_BuildTarget: iOS
     m_EncodingQuality: 1
-  - serializedVersion: 2
-    m_BuildTarget: tvOS
+  - m_BuildTarget: tvOS
     m_EncodingQuality: 1
   m_BuildTargetGroupHDRCubemapEncodingQuality:
-  - serializedVersion: 2
-    m_BuildTarget: Android
+  - m_BuildTarget: Android
     m_EncodingQuality: 1
-  - serializedVersion: 2
-    m_BuildTarget: iOS
+  - m_BuildTarget: iOS
     m_EncodingQuality: 1
-  - serializedVersion: 2
-    m_BuildTarget: tvOS
+  - m_BuildTarget: tvOS
     m_EncodingQuality: 1
   m_BuildTargetGroupLightmapSettings: []
   m_BuildTargetGroupLoadStoreDebugModeSettings: []
@@ -602,13 +736,11 @@ PlayerSettings:
   - m_BuildTarget: tvOS
     m_Encoding: 1
   m_BuildTargetDefaultTextureCompressionFormat:
-  - serializedVersion: 3
-    m_BuildTarget: Android
-    m_Formats: 03000000
+  - m_BuildTarget: Android
+    m_Format: 0
   playModeTestRunnerEnabled: 0
   runPlayModeTestAsEditModeTest: 0
   actionOnDotNetUnhandledException: 1
-  editorGfxJobOverride: 1
   enableInternalProfiler: 0
   logObjCUncaughtExceptions: 1
   enableCrashReportAPI: 0
@@ -761,7 +893,6 @@ PlayerSettings:
   switchEnableRamDiskSupport: 0
   switchMicroSleepForYieldTime: 25
   switchRamDiskSpaceSize: 12
-  switchUpgradedPlayerSettingsToNMETA: 0
   ps4NPAgeRating: 12
   ps4NPTitleSecret: 
   ps4NPTrophyPackPath: 
@@ -865,18 +996,13 @@ PlayerSettings:
   webGLMemoryGeometricGrowthStep: 0.2
   webGLMemoryGeometricGrowthCap: 96
   webGLPowerPreference: 2
-  webGLWebAssemblyTable: 0
-  webGLWebAssemblyBigInt: 0
-  webGLCloseOnQuit: 0
-  webWasm2023: 0
-  webEnableSubmoduleStrippingCompatibility: 0
   scriptingDefineSymbols: {}
   additionalCompilerArguments: {}
   platformArchitecture: {}
-  scriptingBackend: {}
+  scriptingBackend:
+    HMIAndroid: 1
   il2cppCompilerConfiguration: {}
   il2cppCodeGeneration: {}
-  il2cppStacktraceInformation: {}
   managedStrippingLevel:
     Bratwurst: 1
     EmbeddedLinux: 1
@@ -898,10 +1024,11 @@ PlayerSettings:
   useDeterministicCompilation: 1
   additionalIl2CppArgs: 
   scriptingRuntimeVersion: 1
+  monoAOTCompilation: 0
   gcIncremental: 1
   gcWBarrierValidation: 0
+  gcAlgorithm: {}
   apiCompatibilityLevelPerPlatform: {}
-  editorAssembliesCompatibilityLevel: 1
   m_RenderingPath: 1
   m_MobileRenderingPath: 1
   metroPackageName: UnityGPUTexCompression
@@ -976,11 +1103,69 @@ PlayerSettings:
   hmiPlayerDataPath: 
   hmiForceSRGBBlit: 1
   embeddedLinuxEnableGamepadInput: 1
+  logStartupTiming: 0
   hmiCpuConfiguration: 
-  hmiLogStartupTiming: 0
-  qnxGraphicConfPath: 
+  customShaderCachePath: 
+  openHarmonySplashScreen: {fileID: 0}
+  openHarmonySplashScreenScale: 0
+  OpenHarmonyTargetArchitectures: 2
+  openHarmonyClientID: 
+  openHarmonyAppID: 
+  openHarmonyDeviceTypes: 7
+  openHarmonyAppIconTypes: 1
+  openHarmonySupportWindowModes: 1
+  OpenHarmonyBundleVersionCode: 1
+  forceOpenHarmonyInternetPermission: 0
+  forceOpenHarmonySDCardPermission: 0
+  openHarmonyUseLowAccuracyLocation: 0
+  openHarmonyPredefinedPermissions: []
+  openHarmonyUseTuanjieLogo: 1
+  openHarmonyLaunchImage: {fileID: 0}
+  openHarmonyLaunchBackgroundColor: {r: 0.13725491, g: 0.12156863, b: 0.1254902, a: 1}
+  OpenHarmonyKeystoreName: 
+  OpenHarmonyKeyaliasName: 
+  OpenHarmonyProfile: 
+  OpenHarmonyCertificate: 
+  OpenHarmonyCompatibleSdkVersion: 14
+  OpenHarmonyUseCustomKeystore: 0
+  OpenHarmonyUseCustomModuleJsonFive: 0
+  OpenHarmonyUseCustomTuanjiePlayerAbility: 0
   apiCompatibilityLevel: 6
-  captureStartupLogs: {}
+  weixinMiniGameMemorySize: 32
+  weixinMiniGameExceptionSupport: 1
+  weixinMiniGameExceptionOnlyEnableForUserCodes: 0
+  weixinMiniGameNameFilesAsHashes: 0
+  weixinMiniGameShowDiagnostics: 0
+  weixinMiniGameDataCaching: 1
+  weixinMiniGameDebugSymbols: 0
+  weixinMiniGameEmscriptenArgs: 
+  weixinMiniGameModulesDirectory: 
+  weixinMiniGameTemplate: APPLICATION:Default
+  weixinMiniGameAnalyzeBuildSize: 0
+  weixinMiniGameUseEmbeddedResources: 0
+  weixinMiniGameCompressionFormat: 0
+  weixinMiniGameWasmArithmeticExceptions: 0
+  weixinMiniGameLinkerTarget: 1
+  weixinMiniGameThreadsSupport: 0
+  weixinMiniGameDecompressionFallback: 0
+  weixinMiniGameInitialMemorySize: 32
+  weixinMiniGameMaximumMemorySize: 2048
+  weixinMiniGameMemoryGrowthMode: 2
+  weixinMiniGameMemoryLinearGrowthStep: 16
+  weixinMiniGameMemoryGeometricGrowthStep: 0.2
+  weixinMiniGameMemoryGeometricGrowthCap: 96
+  weixinMiniGamePowerPreference: 2
+  weixinMiniGameSIMDSupport: 0
+  weixinMiniGameUseSlimMetaFileFormat: 1
+  weixinMiniGamePhysicsEngine: 0
+  weixinMiniGameInjectStrippedMethodLogger: 0
+  weixinMiniGameEnableDotNetWasmExceptionHandling: 1
+  weixinMiniGamePreserveEventDelegate: 0
+  activeSubplatform: 0
+  serializedFileTypeTreeMemoryOptimization: 0
+  stripBuiltinResources: 0
+  minigameMTRendering: 0
+  weixinMiniGameInvariantPosition: 0
   activeInputHandler: 0
   windowsGamepadBackendHint: 0
   cloudProjectId: 
@@ -991,10 +1176,15 @@ PlayerSettings:
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0
   hmiLoadingImage: {fileID: 0}
+  qnxEGLPriority: 0
+  embeddedLinuxEGLPriority: 0
+  androidEGLPriority: 0
   platformRequiresReadableAssets: 0
   virtualTexturingSupportEnabled: 0
   insecureHttpOption: 0
-  androidVulkanDenyFilterList: []
-  androidVulkanAllowFilterList: []
-  androidVulkanDeviceFilterListAsset: {fileID: 0}
-  d3d12DeviceFilterListAsset: {fileID: 0}
+  useStringInternPool: 0
+  renderThreadTakeSnapshotOnlyOnce: 0
+  miniGameRenderThreadSyncMode: 0
+  miniGameRenderThreadWorkerWaitMode: 1
+  miniGameRenderThreadWorkerWaitTimeout: 1
+  miniGameRenderThreadLoopMode: 2
