@@ -480,7 +480,7 @@ void Downsweep(uint3 gtid : SV_GroupThreadID, uint3 gid : SV_GroupID)
     
     if (waveSize >= 16)
     {
-        offsets = RankKeysWGE16(waveSize, getWaveIndex(gtid.x, waveSize) * RADIX, keys);
+        offsets = RankKeysWGE16(gtid.x, waveSize, getWaveIndex(gtid.x, waveSize) * RADIX, keys);
         GroupMemoryBarrierWithGroupSync();
         
         uint histReduction;
@@ -502,7 +502,7 @@ void Downsweep(uint3 gtid : SV_GroupThreadID, uint3 gid : SV_GroupID)
     
     if (waveSize < 16)
     {
-        offsets = RankKeysWLT16(waveSize, getWaveIndex(gtid.x, waveSize), keys, SerialIterations(waveSize));
+        offsets = RankKeysWLT16(gtid.x, waveSize, getWaveIndex(gtid.x, waveSize), keys, SerialIterations(waveSize));
             
         if (gtid.x < HALF_RADIX)
         {

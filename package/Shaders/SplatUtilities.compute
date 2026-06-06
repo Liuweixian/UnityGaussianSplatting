@@ -27,14 +27,19 @@
 #pragma kernel Scan
 #pragma kernel Downsweep
 
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
+
 // GPU sorting needs wave ops
+#if defined(SHADER_API_VULKAN) || defined(SHADER_API_D3D11) || defined(SHADER_API_D3D12) || defined(SHADER_API_GLCORE) || defined(SHADER_API_METAL)
 #pragma require wavebasic
 #pragma require waveballot
+#define DEVICE_SUPPORTS_WAVE
+#endif
 #pragma use_dxc
 
 #include "DeviceRadixSort.hlsl"
 #include "GaussianSplatting.hlsl"
-#include "UnityCG.cginc"
 
 float4x4 _MatrixObjectToWorld;
 float4x4 _MatrixWorldToObject;
