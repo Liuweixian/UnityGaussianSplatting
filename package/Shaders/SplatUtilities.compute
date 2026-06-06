@@ -30,13 +30,14 @@
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
 
+//#define USING_WAVE_INTRINSICS
 // GPU sorting needs wave ops
-#if defined(SHADER_API_VULKAN) || defined(SHADER_API_D3D11) || defined(SHADER_API_D3D12) || defined(SHADER_API_GLCORE) || defined(SHADER_API_METAL)
+#if defined(USING_WAVE_INTRINSICS)
 #pragma require wavebasic
 #pragma require waveballot
 #define DEVICE_SUPPORTS_WAVE
-#endif
 #pragma use_dxc
+#endif
 
 #include "DeviceRadixSort.hlsl"
 #include "GaussianSplatting.hlsl"

@@ -68,6 +68,10 @@ RWStructuredBuffer<float> b_altPayload;
 
 groupshared uint g_d[D_TOTAL_SMEM]; //Shared memory for DigitBinningPass and DownSweep kernels
 
+#if !defined(DEVICE_SUPPORTS_WAVE)
+groupshared uint g_waveMem[D_DIM];  //Shared memory for wave operation emulation
+#endif
+
 struct KeyStruct
 {
     uint k[KEYS_PER_THREAD];
@@ -114,12 +118,68 @@ inline uint getWaveIndex(uint gtid, uint waveSize)
     return gtid / waveSize;
 }
 
+inline uint getWaveReadLaneAt(uint gtid, uint val, uint lane)
+{
+#if defined(DEVICE_SUPPORTS_WAVE)
+    return WaveReadLaneAt(val, lane);
+#else
+    g_waveMem[gtid] = val;
+    GroupMemoryBarrierWithGroupSync();
+    const uint base = gtid - (gtid & (getWaveSize() - 1));
+    uint result = g_waveMem[base + lane];
+    GroupMemoryBarrierWithGroupSync();
+    return result;
+#endif
+}
+
+inline uint getWavePrefixSum(uint gtid, uint val)
+{
+#if defined(DEVICE_SUPPORTS_WAVE)
+    return WavePrefixSum(val);
+#else
+    const uint laneIndex = gtid & (getWaveSize() - 1);
+    const uint base = gtid - laneIndex;
+    g_waveMem[gtid] = val;
+    GroupMemoryBarrierWithGroupSync();
+    uint sum = 0;
+    for (uint i = 0; i < laneIndex; i++)
+    {
+        sum += g_waveMem[base + i];
+    }
+    GroupMemoryBarrierWithGroupSync();
+    return sum;
+#endif
+}
+
 inline uint getWaveGetLaneIndex(uint gtid, uint waveSize)
 {
 #if defined(DEVICE_SUPPORTS_WAVE)
     return WaveGetLaneIndex();
 #else
     return gtid & (waveSize - 1);
+#endif
+}
+
+inline uint4 getWaveActiveBallot(uint gtid, bool pred)
+{
+#if defined(DEVICE_SUPPORTS_WAVE)
+    return WaveActiveBallot(pred);
+#else
+    g_waveMem[gtid] = pred ? 1 : 0;
+    GroupMemoryBarrierWithGroupSync();
+    uint waveSize = getWaveSize();
+    const uint base = gtid - (gtid & (waveSize - 1));
+    uint4 result = uint4(0, 0, 0, 0);
+    [unroll]
+    for (uint i = 0; i < waveSize; i++)
+    {
+        if (g_waveMem[base + i])
+        {
+            result[i >> 5] |= (1u << (i & 31));
+        }
+    }
+    GroupMemoryBarrierWithGroupSync();
+    return result;
 #endif
 }
 
@@ -335,7 +395,7 @@ inline void WarpLevelMultiSplitWGE16(uint gtid, uint key, inout uint4 waveFlags)
         const uint currentBit = 1 << k + e_radixShift;
         const bool t = (key & currentBit) != 0;
         GroupMemoryBarrierWithGroupSync();  //Play on the safe side, throw in a barrier for convergence
-        const uint4 ballot = WaveActiveBallot(t);
+        const uint4 ballot = getWaveActiveBallot(gtid, t);
         if(t)
             waveFlags &= ballot;
         else
@@ -369,7 +429,7 @@ inline void WarpLevelMultiSplitWLT16(uint gtid, uint key, inout uint waveFlags)
     for (uint k = 0; k < RADIX_LOG; ++k)
     {
         const bool t = key >> (k + e_radixShift) & 1;
-        waveFlags &= (t ? 0 : 0xffffffff) ^ (uint) WaveActiveBallot(t);
+        waveFlags &= (t ? 0 : 0xffffffff) ^ (uint) getWaveActiveBallot(gtid, t);
     }
 }
 
@@ -466,15 +526,15 @@ inline void WaveHistReductionExclusiveScanWGE16(uint gtid, uint waveSize, uint h
         g_d[((getWaveGetLaneIndex(gtid, waveSize) + 1) & laneMask) + (gtid & ~laneMask)] = histReduction;
     }
     GroupMemoryBarrierWithGroupSync();
-                
+    uint prefixInput = (gtid < RADIX / waveSize) ? g_d[gtid * waveSize] : 0;
+    uint prefixResult = getWavePrefixSum(gtid, prefixInput);
     if (gtid < RADIX / waveSize)
     {
-        g_d[gtid * waveSize] =
-            WavePrefixSum(g_d[gtid * waveSize]);
+        g_d[gtid * waveSize] = prefixResult;
     }
     GroupMemoryBarrierWithGroupSync();
     
-    uint t = WaveReadLaneAt(g_d[gtid], 0);
+    uint t = getWaveReadLaneAt(gtid, g_d[gtid], 0);
     if (gtid < RADIX && getWaveGetLaneIndex(gtid, waveSize))
         g_d[gtid] += t;
 }
