@@ -97,7 +97,7 @@ struct DigitStruct
 //Due to a bug with SPIRV pre 1.6, we cannot use WaveGetLaneCount() to get the currently active wavesize 
 inline uint getWaveSize()
 {
-#if defined(VULKAN)
+#if defined(SHADER_API_VULKAN)
     GroupMemoryBarrierWithGroupSync(); //Make absolutely sure the wave is not diverged here
     return dot(countbits(WaveActiveBallot(true)), uint4(1, 1, 1, 1));
 #else
