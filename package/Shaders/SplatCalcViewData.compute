@@ -10,12 +10,7 @@
 
 #include "GaussianSplatting.hlsl"
 #include "UnityCG.cginc"
-
-float4x4 _MatrixObjectToWorld;
-float4x4 _MatrixWorldToObject;
-float4x4 _MatrixMV;
-float4 _VecScreenParams;
-float4 _VecWorldSpaceCameraPos;
+#include "SplatComputeCommon.hlsl"
 
 RWStructuredBuffer<SplatViewData> _SplatViewData;
 
@@ -23,21 +18,6 @@ float _SplatScale;
 float _SplatOpacityScale;
 uint _SHOrder;
 uint _SHOnly;
-uint _SplatCount;
-uint _SplatCutoutsCount;
-uint _SplatBitsValid;
-
-#define SPLAT_CUTOUT_TYPE_ELLIPSOID 0
-#define SPLAT_CUTOUT_TYPE_BOX 1
-
-struct GaussianCutoutShaderData
-{
-    float4x4 mat;
-    uint typeAndFlags;
-};
-StructuredBuffer<GaussianCutoutShaderData> _SplatCutouts;
-
-ByteAddressBuffer _SplatDeletedBits;
 
 void DecomposeCovariance(float3 cov2d, out float2 v1, out float2 v2)
 {
@@ -94,31 +74,6 @@ void DecomposeCovariance(float3 cov2d, out float2 v1, out float2 v2)
     v2 = min(sqrt(2.0 * lambda2), maxSize) * float2(diagVec.y, -diagVec.x);
 
     #endif
-}
-
-bool IsSplatCut(float3 pos)
-{
-    bool finalCut = false;
-    for (uint i = 0; i < _SplatCutoutsCount; ++i)
-    {
-        GaussianCutoutShaderData cutData = _SplatCutouts[i];
-        uint type = cutData.typeAndFlags & 0xFF;
-        if (type == 0xFF) // invalid/null cutout, ignore
-            continue;
-        bool invert = (cutData.typeAndFlags & 0xFF00) != 0;
-
-        float3 cutoutPos = mul(cutData.mat, float4(pos, 1)).xyz;
-        if (type == SPLAT_CUTOUT_TYPE_ELLIPSOID)
-        {
-            if (dot(cutoutPos, cutoutPos) <= 1) return invert;
-        }
-        if (type == SPLAT_CUTOUT_TYPE_BOX)
-        {
-            if (all(abs(cutoutPos) <= 1)) return invert;
-        }
-        finalCut = finalCut || !invert;
-    }
-    return finalCut;
 }
 
 [numthreads(GROUP_SIZE,1,1)]
