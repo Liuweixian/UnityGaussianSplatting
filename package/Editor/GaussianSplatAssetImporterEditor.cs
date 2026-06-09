@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 
-using GaussianSplatting.Runtime;
+using GaussianSplatting.Editor.Utils;
 using UnityEditor;
 using UnityEditor.AssetImporters;
 using UnityEngine;
 
 namespace GaussianSplatting.Editor
 {
-    [CustomEditor(typeof(GaussianSplatImporter))]
+    [CustomEditor(typeof(GaussianSplatAssetImporter))]
     [CanEditMultipleObjects]
-    public class GaussianSplatImporterEditor : ScriptedImporterEditor
+    public class GaussianSplatAssetImporterEditor : ScriptedImporterEditor
     {
         SerializedProperty m_QualityProp;
         SerializedProperty m_ImportCamerasProp;
@@ -36,10 +36,10 @@ namespace GaussianSplatting.Editor
             // Quality preset dropdown
             EditorGUILayout.PropertyField(m_QualityProp, new GUIContent("Quality"));
 
-            var quality = (GaussianSplatImporter.DataQuality)m_QualityProp.intValue;
+            var quality = (GaussianSplatAssetProcessor.DataQuality)m_QualityProp.intValue;
 
             // When Custom: show individual format overrides
-            EditorGUI.BeginDisabledGroup(quality != GaussianSplatImporter.DataQuality.Custom);
+            EditorGUI.BeginDisabledGroup(quality != GaussianSplatAssetProcessor.DataQuality.Custom);
             EditorGUI.indentLevel++;
 
             // Show format dropdowns with estimated sizes
