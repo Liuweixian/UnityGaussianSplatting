@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 using System;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
@@ -214,6 +215,13 @@ namespace GaussianSplatting.Runtime
         // Chunk data is optional (if data formats are fully lossless then there's no chunking)
         [SerializeField] TextAsset m_ChunkData;
 
+        // Inline data storage (used by ScriptedImporter path)
+        [SerializeField] byte[] m_PosDataBytes;
+        [SerializeField] byte[] m_ColorDataBytes;
+        [SerializeField] byte[] m_OtherDataBytes;
+        [SerializeField] byte[] m_SHDataBytes;
+        [SerializeField] byte[] m_ChunkDataBytes;
+
         [SerializeField] CameraInfo[] m_Cameras;
 
         public VectorFormat posFormat => m_PosFormat;
@@ -227,6 +235,69 @@ namespace GaussianSplatting.Runtime
         public TextAsset shData => m_SHData;
         public TextAsset chunkData => m_ChunkData;
         public CameraInfo[] cameras => m_Cameras;
+
+        // Unified data-size properties (work with both TextAsset and byte[] paths)
+        public long posDataSize => m_PosDataBytes != null ? m_PosDataBytes.Length : (m_PosData != null ? m_PosData.dataSize : 0);
+        public long otherDataSize => m_OtherDataBytes != null ? m_OtherDataBytes.Length : (m_OtherData != null ? m_OtherData.dataSize : 0);
+        public long shDataSize => m_SHDataBytes != null ? m_SHDataBytes.Length : (m_SHData != null ? m_SHData.dataSize : 0);
+        public long colorDataSize => m_ColorDataBytes != null ? m_ColorDataBytes.Length : (m_ColorData != null ? m_ColorData.dataSize : 0);
+        public long chunkDataSize => m_ChunkDataBytes != null ? m_ChunkDataBytes.Length : (m_ChunkData != null ? m_ChunkData.dataSize : 0);
+
+        // Unified data-access methods (return new NativeArray copies - caller must dispose)
+        public NativeArray<T> GetPosData<T>() where T : unmanaged
+        {
+            return GetDataNative<T>(m_PosDataBytes, m_PosData);
+        }
+        public NativeArray<T> GetOtherData<T>() where T : unmanaged
+        {
+            return GetDataNative<T>(m_OtherDataBytes, m_OtherData);
+        }
+        public NativeArray<T> GetSHData<T>() where T : unmanaged
+        {
+            return GetDataNative<T>(m_SHDataBytes, m_SHData);
+        }
+        public NativeArray<T> GetColorData<T>() where T : unmanaged
+        {
+            return GetDataNative<T>(m_ColorDataBytes, m_ColorData);
+        }
+        public NativeArray<T> GetChunkData<T>() where T : unmanaged
+        {
+            return GetDataNative<T>(m_ChunkDataBytes, m_ChunkData);
+        }
+
+        static NativeArray<T> GetDataNative<T>(byte[] bytes, TextAsset textAsset) where T : unmanaged
+        {
+            if (bytes != null && bytes.Length > 0)
+            {
+                int count = bytes.Length / UnsafeUtility.SizeOf<T>();
+                var result = new NativeArray<T>(count, Allocator.TempJob);
+                UnsafeUtility.MemCpy(result.GetUnsafePtr(), UnsafeUtility.AddressOf(ref bytes[0]), bytes.Length);
+                return result;
+            }
+            if (textAsset != null)
+            {
+                var src = textAsset.GetData<T>();
+                var result = new NativeArray<T>(src.Length, Allocator.TempJob);
+                UnsafeUtility.MemCpy(result.GetUnsafePtr(), src.GetUnsafeReadOnlyPtr(), src.Length * UnsafeUtility.SizeOf<T>());
+                return result;
+            }
+            return default;
+        }
+
+        public void SetDataBytes(byte[] chunkBytes, byte[] posBytes, byte[] otherBytes, byte[] colorBytes, byte[] shBytes)
+        {
+            m_ChunkDataBytes = chunkBytes;
+            m_PosDataBytes = posBytes;
+            m_OtherDataBytes = otherBytes;
+            m_ColorDataBytes = colorBytes;
+            m_SHDataBytes = shBytes;
+        }
+
+        public bool hasValidData =>
+            (m_PosDataBytes != null || m_PosData != null) &&
+            (m_OtherDataBytes != null || m_OtherData != null) &&
+            (m_SHDataBytes != null || m_SHData != null) &&
+            (m_ColorDataBytes != null || m_ColorData != null);
 
         public struct ChunkInfo
         {
