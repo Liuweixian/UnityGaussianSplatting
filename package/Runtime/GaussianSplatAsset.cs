@@ -265,13 +265,16 @@ namespace GaussianSplatting.Runtime
             return GetDataNative<T>(m_ChunkDataBytes, m_ChunkData);
         }
 
-        static NativeArray<T> GetDataNative<T>(byte[] bytes, TextAsset textAsset) where T : unmanaged
+        static unsafe NativeArray<T> GetDataNative<T>(byte[] bytes, TextAsset textAsset) where T : unmanaged
         {
             if (bytes != null && bytes.Length > 0)
             {
                 int count = bytes.Length / UnsafeUtility.SizeOf<T>();
                 var result = new NativeArray<T>(count, Allocator.TempJob);
-                UnsafeUtility.MemCpy(result.GetUnsafePtr(), UnsafeUtility.AddressOf(ref bytes[0]), count * UnsafeUtility.SizeOf<T>());
+                fixed (byte* ptr = bytes)
+                {
+                    UnsafeUtility.MemCpy(result.GetUnsafePtr(), ptr, count * UnsafeUtility.SizeOf<T>());
+                }
                 return result;
             }
             if (textAsset != null)
