@@ -363,10 +363,7 @@ namespace GaussianSplatting.Runtime
             m_Asset != null &&
             m_Asset.splatCount > 0 &&
             m_Asset.formatVersion == GaussianSplatAsset.kCurrentVersion &&
-            m_Asset.posData != null &&
-            m_Asset.otherData != null &&
-            m_Asset.shData != null &&
-            m_Asset.colorData != null;
+            m_Asset.hasValidData;
         public bool HasValidRenderSetup => m_GpuPosData != null && m_GpuOtherData != null && m_GpuChunks != null;
 
         const int kGpuViewDataSize = 40;
@@ -377,24 +374,34 @@ namespace GaussianSplatting.Runtime
                 return;
 
             m_SplatCount = asset.splatCount;
-            m_GpuPosData = new GraphicsBuffer(GraphicsBuffer.Target.Raw | GraphicsBuffer.Target.CopySource, (int) (asset.posData.dataSize / 4), 4) { name = "GaussianPosData" };
-            m_GpuPosData.SetData(asset.posData.GetData<uint>());
-            m_GpuOtherData = new GraphicsBuffer(GraphicsBuffer.Target.Raw | GraphicsBuffer.Target.CopySource, (int) (asset.otherData.dataSize / 4), 4) { name = "GaussianOtherData" };
-            m_GpuOtherData.SetData(asset.otherData.GetData<uint>());
-            m_GpuSHData = new GraphicsBuffer(GraphicsBuffer.Target.Raw, (int) (asset.shData.dataSize / 4), 4) { name = "GaussianSHData" };
-            m_GpuSHData.SetData(asset.shData.GetData<uint>());
+            var posData = asset.GetPosData<uint>();
+            m_GpuPosData = new GraphicsBuffer(GraphicsBuffer.Target.Raw | GraphicsBuffer.Target.CopySource, posData.Length, 4) { name = "GaussianPosData" };
+            m_GpuPosData.SetData(posData);
+            posData.Dispose();
+            var otherData = asset.GetOtherData<uint>();
+            m_GpuOtherData = new GraphicsBuffer(GraphicsBuffer.Target.Raw | GraphicsBuffer.Target.CopySource, otherData.Length, 4) { name = "GaussianOtherData" };
+            m_GpuOtherData.SetData(otherData);
+            otherData.Dispose();
+            var shData = asset.GetSHData<uint>();
+            m_GpuSHData = new GraphicsBuffer(GraphicsBuffer.Target.Raw, shData.Length, 4) { name = "GaussianSHData" };
+            m_GpuSHData.SetData(shData);
+            shData.Dispose();
             var (texWidth, texHeight) = GaussianSplatAsset.CalcTextureSize(asset.splatCount);
             var texFormat = GaussianSplatAsset.ColorFormatToGraphics(asset.colorFormat);
             var tex = new Texture2D(texWidth, texHeight, texFormat, TextureCreationFlags.DontInitializePixels | TextureCreationFlags.IgnoreMipmapLimit | TextureCreationFlags.DontUploadUponCreate) { name = "GaussianColorData" };
-            tex.SetPixelData(asset.colorData.GetData<byte>(), 0);
+            var colorData = asset.GetColorData<byte>();
+            tex.SetPixelData(colorData, 0);
             tex.Apply(false, true);
             m_GpuColorData = tex;
-            if (asset.chunkData != null && asset.chunkData.dataSize != 0)
+            colorData.Dispose();
+            if (asset.chunkDataSize > 0)
             {
+                var chunkData = asset.GetChunkData<GaussianSplatAsset.ChunkInfo>();
                 m_GpuChunks = new GraphicsBuffer(GraphicsBuffer.Target.Structured,
-                    (int) (asset.chunkData.dataSize / UnsafeUtility.SizeOf<GaussianSplatAsset.ChunkInfo>()),
+                    chunkData.Length,
                     UnsafeUtility.SizeOf<GaussianSplatAsset.ChunkInfo>()) {name = "GaussianChunkData"};
-                m_GpuChunks.SetData(asset.chunkData.GetData<GaussianSplatAsset.ChunkInfo>());
+                m_GpuChunks.SetData(chunkData);
+                chunkData.Dispose();
                 m_GpuChunksValid = true;
             }
             else
@@ -969,7 +976,7 @@ namespace GaussianSplatting.Runtime
                 Debug.LogError($"Invalid new splat count: {newSplatCount}");
                 return;
             }
-            if (asset.chunkData != null)
+            if (asset.chunkDataSize > 0)
             {
                 Debug.LogError("Only splats with VeryHigh quality can be resized");
                 return;
@@ -977,9 +984,9 @@ namespace GaussianSplatting.Runtime
             if (newSplatCount == splatCount)
                 return;
 
-            int posStride = (int)(asset.posData.dataSize / asset.splatCount);
-            int otherStride = (int)(asset.otherData.dataSize / asset.splatCount);
-            int shStride = (int) (asset.shData.dataSize / asset.splatCount);
+            int posStride = (int)(asset.posDataSize / asset.splatCount);
+            int otherStride = (int)(asset.otherDataSize / asset.splatCount);
+            int shStride = (int) (asset.shDataSize / asset.splatCount);
 
             // create new GPU buffers
             var newPosData = new GraphicsBuffer(GraphicsBuffer.Target.Raw | GraphicsBuffer.Target.CopySource, newSplatCount * posStride / 4, 4) { name = "GaussianPosData" };
