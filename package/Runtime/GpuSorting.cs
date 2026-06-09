@@ -117,7 +117,7 @@ namespace GaussianSplatting.Runtime
 
             cs.EnableKeyword(m_keyUintKeyword);
             cs.EnableKeyword(m_payloadUintKeyword);
-            cs.EnableKeyword(m_ascendKeyword);
+            cs.DisableKeyword(m_ascendKeyword);
             cs.EnableKeyword(m_sortPairKeyword);
         }
 
