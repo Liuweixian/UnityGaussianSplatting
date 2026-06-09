@@ -427,7 +427,27 @@ half4 LoadSplatColTex(uint3 coord)
 
 SplatData LoadSplatData(uint idx)
 {
-    SplatData s = (SplatData)0;
+    SplatData s;
+    s.pos = float3(0,0,0);
+    s.rot = float4(0,0,0,0);
+    s.scale = float3(0,0,0);
+    s.opacity = 0;
+    s.sh.col = float3(0,0,0);
+    s.sh.sh1 = float3(0,0,0);
+    s.sh.sh2 = float3(0,0,0);
+    s.sh.sh3 = float3(0,0,0);
+    s.sh.sh4 = float3(0,0,0);
+    s.sh.sh5 = float3(0,0,0);
+    s.sh.sh6 = float3(0,0,0);
+    s.sh.sh7 = float3(0,0,0);
+    s.sh.sh8 = float3(0,0,0);
+    s.sh.sh9 = float3(0,0,0);
+    s.sh.sh10 = float3(0,0,0);
+    s.sh.sh11 = float3(0,0,0);
+    s.sh.sh12 = float3(0,0,0);
+    s.sh.sh13 = float3(0,0,0);
+    s.sh.sh14 = float3(0,0,0);
+    s.sh.sh15 = float3(0,0,0);
 
     // figure out raw data offsets / locations
     uint3 coord = SplatIndexToPixelIndex(idx);

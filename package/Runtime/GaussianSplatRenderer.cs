@@ -149,7 +149,8 @@ namespace GaussianSplatting.Runtime
                 mpb.SetInteger(GaussianSplatRenderer.Props.DisplayChunks, gs.m_RenderMode == GaussianSplatRenderer.RenderMode.DebugChunkBounds ? 1 : 0);
 
                 cmb.BeginSample(s_ProfCalcView);
-                gs.CalcViewData(cmb, cam);
+                if (gs.m_FrameCounter % gs.m_CalcViewNthFrame == 0)
+                    gs.CalcViewData(cmb, cam);
                 cmb.EndSample(s_ProfCalcView);
 
                 // draw
@@ -237,6 +238,8 @@ namespace GaussianSplatting.Runtime
         public bool m_SHOnly;
         [Range(1,30)] [Tooltip("Sort splats only every N frames")]
         public int m_SortNthFrame = 1;
+        [Range(1,10)] [Tooltip("Recalculate view data every N frames. Higher values improve performance on mobile but may cause visual lag when camera moves.")]
+        public int m_CalcViewNthFrame = 1;
 
         public RenderMode m_RenderMode = RenderMode.Splats;
         [Range(1.0f,15.0f)] public float m_PointDisplaySize = 3.0f;
@@ -249,6 +252,8 @@ namespace GaussianSplatting.Runtime
         public Shader m_ShaderDebugBoxes;
         [Tooltip("Gaussian splatting compute shader")]
         public ComputeShader m_CSSplatUtilities;
+        [Tooltip("CalcView compute shader (non-DXC; required on some Adreno GPUs)")]
+        public ComputeShader m_CSSplatCalcView;
 
         int m_SplatCount; // initially same as asset splat count, but editing can change this
         GraphicsBuffer m_GpuSortDistances;
@@ -445,12 +450,21 @@ namespace GaussianSplatting.Runtime
         }
 
         bool resourcesAreSetUp => m_ShaderSplats != null && m_ShaderComposite != null && m_ShaderDebugPoints != null &&
-                                  m_ShaderDebugBoxes != null && m_CSSplatUtilities != null && SystemInfo.supportsComputeShaders;
+                                  m_ShaderDebugBoxes != null && m_CSSplatUtilities != null && m_CSSplatCalcView != null &&
+                                  SystemInfo.supportsComputeShaders;
 
         public void EnsureMaterials()
         {
             if (m_MatSplats == null && resourcesAreSetUp)
             {
+                // Apply mobile-friendly defaults on GLES platforms.
+                // These can be overridden per-component in the Inspector.
+                if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.OpenGLES3 ||
+                    SystemInfo.graphicsDeviceType == GraphicsDeviceType.OpenGLES2)
+                {
+                    if (m_SortNthFrame <= 1) m_SortNthFrame = 3;
+                }
+
                 m_MatSplats = new Material(m_ShaderSplats) {name = "GaussianSplats"};
                 m_MatComposite = new Material(m_ShaderComposite) {name = "GaussianClearDstAlpha"};
                 m_MatDebugPoints = new Material(m_ShaderDebugPoints) {name = "GaussianDebugPoints"};
@@ -486,8 +500,11 @@ namespace GaussianSplatting.Runtime
 
         void SetAssetDataOnCS(CommandBuffer cmb, KernelIndices kernel)
         {
-            ComputeShader cs = m_CSSplatUtilities;
-            int kernelIndex = (int) kernel;
+            SetAssetDataOnCS(cmb, m_CSSplatUtilities, (int)kernel);
+        }
+
+        void SetAssetDataOnCS(CommandBuffer cmb, ComputeShader cs, int kernelIndex)
+        {
             cmb.SetComputeBufferParam(cs, kernelIndex, Props.SplatPos, m_GpuPosData);
             cmb.SetComputeBufferParam(cs, kernelIndex, Props.SplatChunks, m_GpuChunks);
             cmb.SetComputeBufferParam(cs, kernelIndex, Props.SplatOther, m_GpuOtherData);
@@ -596,21 +613,22 @@ namespace GaussianSplatting.Runtime
             Vector4 camPos = cam.transform.position;
 
             // calculate view dependent data for each splat
-            SetAssetDataOnCS(cmb, KernelIndices.CalcViewData);
+            const int kCalcViewKernel = 0;
+            SetAssetDataOnCS(cmb, m_CSSplatCalcView, kCalcViewKernel);
 
-            cmb.SetComputeMatrixParam(m_CSSplatUtilities, Props.MatrixMV, matView * matO2W);
-            cmb.SetComputeMatrixParam(m_CSSplatUtilities, Props.MatrixObjectToWorld, matO2W);
-            cmb.SetComputeMatrixParam(m_CSSplatUtilities, Props.MatrixWorldToObject, matW2O);
+            cmb.SetComputeMatrixParam(m_CSSplatCalcView, Props.MatrixMV, matView * matO2W);
+            cmb.SetComputeMatrixParam(m_CSSplatCalcView, Props.MatrixObjectToWorld, matO2W);
+            cmb.SetComputeMatrixParam(m_CSSplatCalcView, Props.MatrixWorldToObject, matW2O);
 
-            cmb.SetComputeVectorParam(m_CSSplatUtilities, Props.VecScreenParams, screenPar);
-            cmb.SetComputeVectorParam(m_CSSplatUtilities, Props.VecWorldSpaceCameraPos, camPos);
-            cmb.SetComputeFloatParam(m_CSSplatUtilities, Props.SplatScale, m_SplatScale);
-            cmb.SetComputeFloatParam(m_CSSplatUtilities, Props.SplatOpacityScale, m_OpacityScale);
-            cmb.SetComputeIntParam(m_CSSplatUtilities, Props.SHOrder, m_SHOrder);
-            cmb.SetComputeIntParam(m_CSSplatUtilities, Props.SHOnly, m_SHOnly ? 1 : 0);
+            cmb.SetComputeVectorParam(m_CSSplatCalcView, Props.VecScreenParams, screenPar);
+            cmb.SetComputeVectorParam(m_CSSplatCalcView, Props.VecWorldSpaceCameraPos, camPos);
+            cmb.SetComputeFloatParam(m_CSSplatCalcView, Props.SplatScale, m_SplatScale);
+            cmb.SetComputeFloatParam(m_CSSplatCalcView, Props.SplatOpacityScale, m_OpacityScale);
+            cmb.SetComputeIntParam(m_CSSplatCalcView, Props.SHOrder, m_SHOrder);
+            cmb.SetComputeIntParam(m_CSSplatCalcView, Props.SHOnly, m_SHOnly ? 1 : 0);
 
-            m_CSSplatUtilities.GetKernelThreadGroupSizes((int)KernelIndices.CalcViewData, out uint gsX, out _, out _);
-            cmb.DispatchCompute(m_CSSplatUtilities, (int)KernelIndices.CalcViewData, (m_GpuView.count + (int)gsX - 1)/(int)gsX, 1, 1);
+            m_CSSplatCalcView.GetKernelThreadGroupSizes(kCalcViewKernel, out uint gsX, out _, out _);
+            cmb.DispatchCompute(m_CSSplatCalcView, kCalcViewKernel, (m_GpuView.count + (int)gsX - 1)/(int)gsX, 1, 1);
         }
 
         internal void SortPoints(CommandBuffer cmd, Camera cam, Matrix4x4 matrix)
@@ -985,11 +1003,26 @@ namespace GaussianSplatting.Runtime
             var newOtherData = new GraphicsBuffer(GraphicsBuffer.Target.Raw | GraphicsBuffer.Target.CopySource, newSplatCount * otherStride / 4, 4) { name = "GaussianOtherData" };
             var newSHData = new GraphicsBuffer(GraphicsBuffer.Target.Raw, newSplatCount * shStride / 4, 4) { name = "GaussianSHData" };
 
-            // new texture is a RenderTexture so we can write to it from a compute shader
+            // new texture: use RenderTexture with enableRandomWrite on Vulkan/Metal/D3D,
+            // or Texture2D with SetPixelData on GLES (compute shader RWTexture2D not reliable on GLES)
             var (texWidth, texHeight) = GaussianSplatAsset.CalcTextureSize(newSplatCount);
             var texFormat = GaussianSplatAsset.ColorFormatToGraphics(asset.colorFormat);
-            var newColorData = new RenderTexture(texWidth, texHeight, texFormat, GraphicsFormat.None) { name = "GaussianColorData", enableRandomWrite = true };
-            newColorData.Create();
+            Texture newColorData;
+            if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Vulkan ||
+                SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Metal ||
+                SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Direct3D11 ||
+                SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Direct3D12)
+            {
+                var newColorRT = new RenderTexture(texWidth, texHeight, texFormat, GraphicsFormat.None) { name = "GaussianColorData", enableRandomWrite = true };
+                newColorRT.Create();
+                newColorData = newColorRT;
+            }
+            else
+            {
+                var newColorTex = new Texture2D(texWidth, texHeight, texFormat, TextureCreationFlags.DontInitializePixels | TextureCreationFlags.IgnoreMipmapLimit | TextureCreationFlags.DontUploadUponCreate) { name = "GaussianColorData" };
+                newColorTex.Apply(false, true);
+                newColorData = newColorTex;
+            }
 
             // selected/deleted buffers
             var selTarget = GraphicsBuffer.Target.Raw | GraphicsBuffer.Target.CopySource | GraphicsBuffer.Target.CopyDestination;
@@ -1086,5 +1119,33 @@ namespace GaussianSplatting.Runtime
         }
 
         public GraphicsBuffer GpuEditDeleted => m_GpuEditDeleted;
+
+        static readonly string[] s_RenderModeNames = System.Enum.GetNames(typeof(RenderMode));
+        static GUIStyle s_ToolbarButtonStyle;
+        static GUIStyle s_LabelStyle;
+
+        static void InitGUIStyles()
+        {
+            if (s_ToolbarButtonStyle != null) return;
+            s_ToolbarButtonStyle = new GUIStyle(GUI.skin.button) { fontSize = 18, fixedHeight = 36, padding = new RectOffset(10, 10, 4, 4) };
+            s_LabelStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fixedHeight = 36, alignment = TextAnchor.MiddleLeft };
+        }
+
+        void OnGUI()
+        {
+            if (!HasValidAsset || !HasValidRenderSetup)
+                return;
+
+            InitGUIStyles();
+            GUILayout.BeginArea(new Rect(10, 10, 900, 50));
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Render Mode:", s_LabelStyle, GUILayout.Width(150));
+            int cur = (int)m_RenderMode;
+            int next = GUILayout.Toolbar(cur, s_RenderModeNames, s_ToolbarButtonStyle);
+            if (next != cur)
+                m_RenderMode = (RenderMode)next;
+            GUILayout.EndHorizontal();
+            GUILayout.EndArea();
+        }
     }
 }

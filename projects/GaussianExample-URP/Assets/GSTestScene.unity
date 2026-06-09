@@ -430,6 +430,7 @@ MonoBehaviour:
   m_SHOrder: 3
   m_SHOnly: 0
   m_SortNthFrame: 1
+  m_CalcViewNthFrame: 1
   m_RenderMode: 0
   m_PointDisplaySize: 3
   m_Cutouts: []
@@ -465,6 +466,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e3aad69898d4c4f1593f0fb458897566, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  rotating_speed: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
