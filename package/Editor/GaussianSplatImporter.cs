@@ -47,7 +47,7 @@ namespace GaussianSplatting.Editor
             m_FormatColor != GaussianSplatAsset.ColorFormat.Float32x4 ||
             m_FormatSH != GaussianSplatAsset.SHFormat.Float32;
 
-        public override void OnImportAsset(AssetImportContext ctx)
+        public override unsafe void OnImportAsset(AssetImportContext ctx)
         {
             string assetPath = ctx.assetPath;
 
@@ -614,7 +614,7 @@ namespace GaussianSplatting.Editor
 
         #region Data Generation Methods
 
-        byte[] CreateChunkBytes(NativeArray<InputSplatData> splatData, ref Hash128 dataHash)
+        unsafe byte[] CreateChunkBytes(NativeArray<InputSplatData> splatData, ref Hash128 dataHash)
         {
             int chunkCount = (splatData.Length + GaussianSplatAsset.kChunkSize - 1) / GaussianSplatAsset.kChunkSize;
             CalcChunkDataJob job = new CalcChunkDataJob
@@ -629,13 +629,14 @@ namespace GaussianSplatting.Editor
 
             int byteCount = chunkCount * UnsafeUtility.SizeOf<GaussianSplatAsset.ChunkInfo>();
             byte[] result = new byte[byteCount];
-            UnsafeUtility.MemCpy(UnsafeUtility.AddressOf(ref result[0]), job.chunks.GetUnsafeReadOnlyPtr(), byteCount);
+            fixed (byte* ptr = result)
+                UnsafeUtility.MemCpy(ptr, job.chunks.GetUnsafeReadOnlyPtr(), byteCount);
 
             job.chunks.Dispose();
             return result;
         }
 
-        byte[] CreatePositionsBytes(NativeArray<InputSplatData> inputSplats, ref Hash128 dataHash)
+        unsafe byte[] CreatePositionsBytes(NativeArray<InputSplatData> inputSplats, ref Hash128 dataHash)
         {
             int dataLen = inputSplats.Length * GaussianSplatAsset.GetVectorSize(m_FormatPos);
             dataLen = NextMultipleOf(dataLen, 8); // serialized as ulong
@@ -653,12 +654,13 @@ namespace GaussianSplatting.Editor
             dataHash.Append(data);
 
             byte[] result = new byte[dataLen];
-            UnsafeUtility.MemCpy(UnsafeUtility.AddressOf(ref result[0]), data.GetUnsafeReadOnlyPtr(), dataLen);
+            fixed (byte* ptr = result)
+                UnsafeUtility.MemCpy(ptr, data.GetUnsafeReadOnlyPtr(), dataLen);
             data.Dispose();
             return result;
         }
 
-        byte[] CreateOtherBytes(NativeArray<InputSplatData> inputSplats, NativeArray<int> splatSHIndices, ref Hash128 dataHash)
+        unsafe byte[] CreateOtherBytes(NativeArray<InputSplatData> inputSplats, NativeArray<int> splatSHIndices, ref Hash128 dataHash)
         {
             int formatSize = GaussianSplatAsset.GetOtherSizeNoSHIndex(m_FormatScale);
             if (splatSHIndices.IsCreated)
@@ -681,7 +683,8 @@ namespace GaussianSplatting.Editor
             dataHash.Append(data);
 
             byte[] result = new byte[dataLen];
-            UnsafeUtility.MemCpy(UnsafeUtility.AddressOf(ref result[0]), data.GetUnsafeReadOnlyPtr(), dataLen);
+            fixed (byte* ptr = result)
+                UnsafeUtility.MemCpy(ptr, data.GetUnsafeReadOnlyPtr(), dataLen);
             data.Dispose();
             return result;
         }
@@ -710,7 +713,7 @@ namespace GaussianSplatting.Editor
             }
         }
 
-        byte[] CreateColorBytes(NativeArray<InputSplatData> inputSplats, ref Hash128 dataHash)
+        unsafe byte[] CreateColorBytes(NativeArray<InputSplatData> inputSplats, ref Hash128 dataHash)
         {
             var (width, height) = GaussianSplatAsset.CalcTextureSize(inputSplats.Length);
             NativeArray<float4> data = new(width * height, Allocator.TempJob);
@@ -736,7 +739,8 @@ namespace GaussianSplatting.Editor
                 NativeArray<byte> cmpData = tex.GetPixelData<byte>(0);
 
                 result = new byte[cmpData.Length];
-                UnsafeUtility.MemCpy(UnsafeUtility.AddressOf(ref result[0]), cmpData.GetUnsafeReadOnlyPtr(), cmpData.Length);
+                fixed (byte* ptr = result)
+                    UnsafeUtility.MemCpy(ptr, cmpData.GetUnsafeReadOnlyPtr(), cmpData.Length);
 
                 DestroyImmediate(tex);
             }
@@ -754,7 +758,8 @@ namespace GaussianSplatting.Editor
                 jobConvert.Schedule(height, 1).Complete();
 
                 result = new byte[dstSize];
-                UnsafeUtility.MemCpy(UnsafeUtility.AddressOf(ref result[0]), jobConvert.outputData.GetUnsafeReadOnlyPtr(), dstSize);
+                fixed (byte* ptr = result)
+                    UnsafeUtility.MemCpy(ptr, jobConvert.outputData.GetUnsafeReadOnlyPtr(), dstSize);
                 jobConvert.outputData.Dispose();
             }
 
@@ -868,14 +873,15 @@ namespace GaussianSplatting.Editor
             }
         }
 
-        byte[] CreateSHBytes(NativeArray<InputSplatData> inputSplats, NativeArray<GaussianSplatAsset.SHTableItemFloat16> clusteredSHs, ref Hash128 dataHash)
+        unsafe byte[] CreateSHBytes(NativeArray<InputSplatData> inputSplats, NativeArray<GaussianSplatAsset.SHTableItemFloat16> clusteredSHs, ref Hash128 dataHash)
         {
             if (clusteredSHs.IsCreated)
             {
                 dataHash.Append(clusteredSHs);
                 int byteCount = clusteredSHs.Length * UnsafeUtility.SizeOf<GaussianSplatAsset.SHTableItemFloat16>();
                 byte[] result = new byte[byteCount];
-                UnsafeUtility.MemCpy(UnsafeUtility.AddressOf(ref result[0]), clusteredSHs.GetUnsafeReadOnlyPtr(), byteCount);
+                fixed (byte* ptr = result)
+                    UnsafeUtility.MemCpy(ptr, clusteredSHs.GetUnsafeReadOnlyPtr(), byteCount);
                 return result;
             }
             else
@@ -892,7 +898,8 @@ namespace GaussianSplatting.Editor
 
                 dataHash.Append(data);
                 byte[] result = new byte[dataLen];
-                UnsafeUtility.MemCpy(UnsafeUtility.AddressOf(ref result[0]), data.GetUnsafeReadOnlyPtr(), dataLen);
+                fixed (byte* ptr = result)
+                    UnsafeUtility.MemCpy(ptr, data.GetUnsafeReadOnlyPtr(), dataLen);
                 data.Dispose();
                 return result;
             }
