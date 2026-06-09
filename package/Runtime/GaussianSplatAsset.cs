@@ -271,7 +271,7 @@ namespace GaussianSplatting.Runtime
             {
                 int count = bytes.Length / UnsafeUtility.SizeOf<T>();
                 var result = new NativeArray<T>(count, Allocator.TempJob);
-                UnsafeUtility.MemCpy(result.GetUnsafePtr(), UnsafeUtility.AddressOf(ref bytes[0]), bytes.Length);
+                UnsafeUtility.MemCpy(result.GetUnsafePtr(), UnsafeUtility.AddressOf(ref bytes[0]), count * UnsafeUtility.SizeOf<T>());
                 return result;
             }
             if (textAsset != null)

@@ -17,7 +17,7 @@ using UnityEngine.Experimental.Rendering;
 
 namespace GaussianSplatting.Editor
 {
-    [ScriptedImporter(1, new[] { "ply", "spz" }, new[] { "spz" })]
+    [ScriptedImporter(1, new[] { "ply", "spz" }, new[] { "ply", "spz" })]
     public class GaussianSplatImporter : ScriptedImporter
     {
         const string kProgressTitle = "Importing Gaussian Splat";
