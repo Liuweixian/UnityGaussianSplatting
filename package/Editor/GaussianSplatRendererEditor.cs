@@ -188,7 +188,7 @@ namespace GaussianSplatting.Editor
                 return;
             }
 
-            if (targetGs.asset.chunkData != null)
+            if (targetGs.asset.chunkDataSize > 0)
             {
                 EditorGUILayout.HelpBox($"Can't merge into {target.name} (needs to use Very High quality preset)", MessageType.Warning);
                 return;
@@ -272,7 +272,7 @@ namespace GaussianSplatting.Editor
                 ToolManager.SetActiveContext<GameObjectToolContext>();
             }
 
-            if (isToolActive && gs.asset.chunkData != null)
+            if (isToolActive && gs.asset.chunkDataSize > 0)
             {
                 EditorGUILayout.HelpBox("Splat move/rotate/scale tools need Very High splat quality preset", MessageType.Warning);
             }
