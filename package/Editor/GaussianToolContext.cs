@@ -49,6 +49,7 @@ namespace GaussianSplatting.Editor
                         gs.EditDeleteSelected();
                         GaussianSplatRendererEditor.RepaintAll();
                     }
+
                     evt.Use();
                     break;
                 case "SelectAll":
@@ -57,6 +58,7 @@ namespace GaussianSplatting.Editor
                         gs.EditSelectAll();
                         GaussianSplatRendererEditor.RepaintAll();
                     }
+
                     evt.Use();
                     break;
                 case "DeselectAll":
@@ -65,6 +67,7 @@ namespace GaussianSplatting.Editor
                         gs.EditDeselectAll();
                         GaussianSplatRendererEditor.RepaintAll();
                     }
+
                     evt.Use();
                     break;
                 case "InvertSelection":
@@ -73,6 +76,7 @@ namespace GaussianSplatting.Editor
                         gs.EditInvertSelection();
                         GaussianSplatRendererEditor.RepaintAll();
                     }
+
                     evt.Use();
                     break;
             }
@@ -121,6 +125,7 @@ namespace GaussianSplatting.Editor
                         m_MouseStartDragPos = evt.mousePosition;
                         evt.Use();
                     }
+
                     break;
                 case EventType.MouseDrag:
                     if (GUIUtility.hotControl == id && evt.button == 0)
@@ -132,6 +137,7 @@ namespace GaussianSplatting.Editor
                         GaussianSplatRendererEditor.RepaintAll();
                         evt.Use();
                     }
+
                     break;
                 case EventType.MouseUp:
                     if (GUIUtility.hotControl == id && evt.button == 0)
@@ -140,10 +146,11 @@ namespace GaussianSplatting.Editor
                         GUIUtility.hotControl = 0;
                         evt.Use();
                     }
+
                     break;
                 case EventType.Repaint:
                     // draw cutout gizmos
-                    Handles.color = new Color(1,0,1,0.7f);
+                    Handles.color = new Color(1, 0, 1, 0.7f);
                     var prevMatrix = Handles.matrix;
                     foreach (var cutout in gs.m_Cutouts)
                     {
@@ -156,6 +163,7 @@ namespace GaussianSplatting.Editor
                             Handles.DrawWireDisc(Vector3.zero, Vector3.right, 1.0f);
                             Handles.DrawWireDisc(Vector3.zero, Vector3.forward, 1.0f);
                         }
+
                         if (cutout.m_Type == GaussianCutout.Type.Box)
                             Handles.DrawWireCube(Vector3.zero, Vector3.one * 2);
                     }
@@ -164,9 +172,11 @@ namespace GaussianSplatting.Editor
                     // draw selection bounding box
                     if (gs.editSelectedSplats > 0)
                     {
-                        var selBounds = GaussianSplatRendererEditor.TransformBounds(gs.transform, gs.editSelectedBounds);
+                        var selBounds =
+                            GaussianSplatRendererEditor.TransformBounds(gs.transform, gs.editSelectedBounds);
                         Handles.DrawWireCube(selBounds.center, selBounds.size);
                     }
+
                     // draw drag rectangle
                     if (GUIUtility.hotControl == id && evt.mousePosition != m_MouseStartDragPos)
                     {
@@ -175,6 +185,7 @@ namespace GaussianSplatting.Editor
                         style.Draw(FromToRect(m_MouseStartDragPos, evt.mousePosition), false, false, false, false);
                         Handles.EndGUI();
                     }
+
                     break;
             }
         }
