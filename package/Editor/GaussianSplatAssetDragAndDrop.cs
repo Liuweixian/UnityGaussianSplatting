@@ -100,17 +100,35 @@ namespace GaussianSplatting.Editor
             renderer.m_CSSplatUtilities = LoadComputeShader(s_CSSplatUtilitiesGuid);
             renderer.m_CSSplatCalcView = LoadComputeShader(s_CSSplatCalcViewPath);
             
-            // Position at scene center or camera look-at point
-            var sceneView = SceneView.lastActiveSceneView;
-            if (sceneView != null)
+            // Position at origin
+            go.transform.position = Vector3.zero;
+            
+            // Position Camera.main: use camera data from asset, or fall back to bounds framing
+            var mainCam = Camera.main;
+            if (mainCam != null)
             {
-                var cameraTransform = sceneView.camera.transform;
-                var lookAtPoint = cameraTransform.position + cameraTransform.forward * 5f;
-                go.transform.position = lookAtPoint;
-            }
-            else
-            {
-                go.transform.position = Vector3.zero;
+                if (asset.cameras != null && asset.cameras.Length > 0)
+                {
+                    var cam = asset.cameras[0];
+                    var camTr = mainCam.transform;
+                    var prevParent = camTr.parent;
+                    camTr.parent = go.transform;
+                    camTr.localPosition = cam.pos;
+                    camTr.localRotation = Quaternion.LookRotation(cam.axisZ, cam.axisY);
+                    camTr.parent = prevParent;
+                    camTr.localScale = Vector3.one;
+                    EditorUtility.SetDirty(camTr);
+                }
+                else
+                {
+                    var bounds = new Bounds();
+                    bounds.SetMinMax(asset.boundsMin, asset.boundsMax);
+                    if (bounds.extents != Vector3.zero)
+                    {
+                        mainCam.transform.position = bounds.center + Vector3.back * bounds.size.magnitude;
+                        mainCam.transform.LookAt(bounds.center);
+                    }
+                }
             }
             
             Debug.Log($"Created Gaussian Splat object '{go.name}' with {asset.splatCount:N0} splats");
