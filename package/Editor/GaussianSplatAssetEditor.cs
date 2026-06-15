@@ -66,6 +66,26 @@ namespace GaussianSplatting.Editor
             EditorGUILayout.Vector3Field("Bounds Max", gs.boundsMax);
 
             EditorGUILayout.TextField("Data Hash", gs.dataHash.ToString());
+
+            var cams = gs.cameras;
+            EditorGUILayout.IntField("Cameras", cams != null ? cams.Length : 0);
+            if (cams != null && cams.Length > 0)
+            {
+                EditorGUI.indentLevel++;
+                for (int i = 0; i < cams.Length; i++)
+                {
+                    EditorGUILayout.LabelField($"Cam {i}");
+                    EditorGUI.indentLevel++;
+                    ref var cam = ref cams[i];
+                    EditorGUILayout.Vector3Field("Pos", cam.pos);
+                    EditorGUILayout.Vector3Field("Axis X", cam.axisX);
+                    EditorGUILayout.Vector3Field("Axis Y", cam.axisY);
+                    EditorGUILayout.Vector3Field("Axis Z", cam.axisZ);
+                    EditorGUILayout.FloatField("FoV", cam.fov);
+                    EditorGUI.indentLevel--;
+                }
+                EditorGUI.indentLevel--;
+            }
         }
     }
 }
