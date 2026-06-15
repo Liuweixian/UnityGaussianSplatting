@@ -27,3 +27,4 @@
 *.sln.DotSettings.user
 build
 .codely-cli
+.codely
