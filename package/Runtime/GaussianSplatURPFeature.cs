@@ -114,6 +114,8 @@ namespace GaussianSplatting.Runtime
                 {
                     cmd.SetGlobalTexture(s_GaussianSplatRT, m_GaussianSplatRT.Identifier());
                     CoreUtils.SetRenderTarget(cmd, m_GaussianSplatRT.Identifier(), m_DepthTarget, ClearFlag.Color, Color.clear);
+                    
+                    cmd.SetGlobalTexture(GaussianSplatRenderer.Props.CameraTargetTexture, m_ColorTarget);
 
                     Material matComposite = system.SortAndRenderSplats(camera, cmd);
 
