@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 using GaussianSplatting.Editor.Utils;
+using GaussianSplatting.Runtime;
 using UnityEditor;
 using UnityEditor.AssetImporters;
 using UnityEngine;
@@ -33,10 +34,29 @@ namespace GaussianSplatting.Editor
         {
             serializedObject.Update();
 
+            var prevQuality = (GaussianSplatAssetProcessor.DataQuality)m_QualityProp.intValue;
+
             // Quality preset dropdown
             EditorGUILayout.PropertyField(m_QualityProp, new GUIContent("Quality"));
 
             var quality = (GaussianSplatAssetProcessor.DataQuality)m_QualityProp.intValue;
+
+            // When quality changes to a preset, update format fields to reflect the preset
+            if (quality != prevQuality && quality != GaussianSplatAssetProcessor.DataQuality.Custom)
+            {
+                var settings = new GaussianSplatAssetProcessor.ImportSettings
+                {
+                    FormatPos = (GaussianSplatAsset.VectorFormat)m_FormatPosProp.intValue,
+                    FormatScale = (GaussianSplatAsset.VectorFormat)m_FormatScaleProp.intValue,
+                    FormatColor = (GaussianSplatAsset.ColorFormat)m_FormatColorProp.intValue,
+                    FormatSH = (GaussianSplatAsset.SHFormat)m_FormatSHProp.intValue,
+                };
+                GaussianSplatAssetProcessor.ApplyQualityLevel(quality, ref settings);
+                m_FormatPosProp.intValue = (int)settings.FormatPos;
+                m_FormatScaleProp.intValue = (int)settings.FormatScale;
+                m_FormatColorProp.intValue = (int)settings.FormatColor;
+                m_FormatSHProp.intValue = (int)settings.FormatSH;
+            }
 
             // When Custom: show individual format overrides
             EditorGUI.BeginDisabledGroup(quality != GaussianSplatAssetProcessor.DataQuality.Custom);
