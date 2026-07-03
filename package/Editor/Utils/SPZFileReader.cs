@@ -23,6 +23,7 @@ namespace GaussianSplatting.Editor.Utils
             public uint numPoints;
             public uint sh_fracbits_flags_reserved;
         };
+
         public static void ReadFileHeader(string filePath, out int vertexCount)
         {
             vertexCount = 0;
@@ -65,6 +66,11 @@ namespace GaussianSplatting.Editor.Utils
 
         public static void ReadFile(string filePath, out NativeArray<InputSplatData> splats)
         {
+            ReadFile(filePath, out splats, CoordinateSystem.RUB, CoordinateSystem.RUF);
+        }
+
+        public static void ReadFile(string filePath, out NativeArray<InputSplatData> splats, CoordinateSystem from, CoordinateSystem to)
+        {
             using var fs = File.OpenRead(filePath);
             using var gz = new GZipStream(fs, CompressionMode.Decompress);
             ReadHeaderImpl(filePath, gz, out var splatCount, out var shLevel, out var fractBits, out var flags);
@@ -105,6 +111,7 @@ namespace GaussianSplatting.Editor.Utils
             job.packedSh = packedSh;
             job.shCoeffs = shCoeffs;
             job.fractScale = 1.0f / (1 << fractBits);
+            job.coordinateConverter = CoordinateConverter.Create(from, to);
             job.splats = splats;
             job.Schedule(splatCount, 4096).Complete();
 
@@ -134,18 +141,22 @@ namespace GaussianSplatting.Editor.Utils
             [NativeDisableParallelForRestriction] [ReadOnly] public NativeArray<byte> packedSh;
             public float fractScale;
             public int shCoeffs;
+            public CoordinateConverter coordinateConverter;
             public NativeArray<InputSplatData> splats;
 
             public void Execute(int index)
             {
                 var splat = splats[index];
 
-                splat.pos = new Vector3(UnpackFloat(index * 3 + 0) * fractScale, UnpackFloat(index * 3 + 1) * fractScale, UnpackFloat(index * 3 + 2) * fractScale);
+                float3 pos = new float3(UnpackFloat(index * 3 + 0) * fractScale, UnpackFloat(index * 3 + 1) * fractScale, UnpackFloat(index * 3 + 2) * fractScale);
+                pos *= coordinateConverter.flipP;
+                splat.pos = new Vector3(pos.x, pos.y, pos.z);
 
                 splat.scale = new Vector3(packedScale[index * 3 + 0], packedScale[index * 3 + 1], packedScale[index * 3 + 2]) / 16.0f - new Vector3(10.0f, 10.0f, 10.0f);
                 splat.scale = GaussianUtils.LinearScale(splat.scale);
 
                 Vector3 xyz = new Vector3(packedRot[index * 3 + 0], packedRot[index * 3 + 1], packedRot[index * 3 + 2]) * (1.0f / 127.5f) - new Vector3(1, 1, 1);
+                xyz = new Vector3(xyz.x * coordinateConverter.flipQ.x, xyz.y * coordinateConverter.flipQ.y, xyz.z * coordinateConverter.flipQ.z);
                 float w = math.sqrt(math.max(0.0f, 1.0f - xyz.sqrMagnitude));
                 var q = new float4(xyz.x, xyz.y, xyz.z, w);
                 var qq = math.normalize(q);
@@ -162,21 +173,21 @@ namespace GaussianSplatting.Editor.Utils
                 // Only unpack SH coefficients if they exist in the file
                 // shCoeffs can be 0, 3, 8, or 15 depending on shLevel (0, 1, 2, or 3)
                 int shIdx = index * shCoeffs * 3;
-                if (shCoeffs >= 1) { splat.sh1 = UnpackSH(shIdx); shIdx += 3; }
-                if (shCoeffs >= 2) { splat.sh2 = UnpackSH(shIdx); shIdx += 3; }
-                if (shCoeffs >= 3) { splat.sh3 = UnpackSH(shIdx); shIdx += 3; }
-                if (shCoeffs >= 4) { splat.sh4 = UnpackSH(shIdx); shIdx += 3; }
-                if (shCoeffs >= 5) { splat.sh5 = UnpackSH(shIdx); shIdx += 3; }
-                if (shCoeffs >= 6) { splat.sh6 = UnpackSH(shIdx); shIdx += 3; }
-                if (shCoeffs >= 7) { splat.sh7 = UnpackSH(shIdx); shIdx += 3; }
-                if (shCoeffs >= 8) { splat.sh8 = UnpackSH(shIdx); shIdx += 3; }
-                if (shCoeffs >= 9) { splat.sh9 = UnpackSH(shIdx); shIdx += 3; }
-                if (shCoeffs >= 10) { splat.shA = UnpackSH(shIdx); shIdx += 3; }
-                if (shCoeffs >= 11) { splat.shB = UnpackSH(shIdx); shIdx += 3; }
-                if (shCoeffs >= 12) { splat.shC = UnpackSH(shIdx); shIdx += 3; }
-                if (shCoeffs >= 13) { splat.shD = UnpackSH(shIdx); shIdx += 3; }
-                if (shCoeffs >= 14) { splat.shE = UnpackSH(shIdx); shIdx += 3; }
-                if (shCoeffs >= 15) { splat.shF = UnpackSH(shIdx); shIdx += 3; }
+                if (shCoeffs >= 1) { splat.sh1 = UnpackSH(shIdx, 0); shIdx += 3; }
+                if (shCoeffs >= 2) { splat.sh2 = UnpackSH(shIdx, 1); shIdx += 3; }
+                if (shCoeffs >= 3) { splat.sh3 = UnpackSH(shIdx, 2); shIdx += 3; }
+                if (shCoeffs >= 4) { splat.sh4 = UnpackSH(shIdx, 3); shIdx += 3; }
+                if (shCoeffs >= 5) { splat.sh5 = UnpackSH(shIdx, 4); shIdx += 3; }
+                if (shCoeffs >= 6) { splat.sh6 = UnpackSH(shIdx, 5); shIdx += 3; }
+                if (shCoeffs >= 7) { splat.sh7 = UnpackSH(shIdx, 6); shIdx += 3; }
+                if (shCoeffs >= 8) { splat.sh8 = UnpackSH(shIdx, 7); shIdx += 3; }
+                if (shCoeffs >= 9) { splat.sh9 = UnpackSH(shIdx, 8); shIdx += 3; }
+                if (shCoeffs >= 10) { splat.shA = UnpackSH(shIdx, 9); shIdx += 3; }
+                if (shCoeffs >= 11) { splat.shB = UnpackSH(shIdx, 10); shIdx += 3; }
+                if (shCoeffs >= 12) { splat.shC = UnpackSH(shIdx, 11); shIdx += 3; }
+                if (shCoeffs >= 13) { splat.shD = UnpackSH(shIdx, 12); shIdx += 3; }
+                if (shCoeffs >= 14) { splat.shE = UnpackSH(shIdx, 13); shIdx += 3; }
+                if (shCoeffs >= 15) { splat.shF = UnpackSH(shIdx, 14); shIdx += 3; }
 
                 splats[index] = splat;
             }
@@ -188,10 +199,11 @@ namespace GaussianSplatting.Editor.Utils
                 return fx;
             }
 
-            Vector3 UnpackSH(int idx)
+            Vector3 UnpackSH(int idx, int shCoeff)
             {
                 Vector3 sh = new Vector3(packedSh[idx], packedSh[idx + 1], packedSh[idx + 2]) - new Vector3(128.0f, 128.0f, 128.0f);
                 sh /= 128.0f;
+                sh *= coordinateConverter.SHFlip(shCoeff);
                 return sh;
             }
         }
