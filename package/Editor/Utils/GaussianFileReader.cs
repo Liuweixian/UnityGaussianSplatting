@@ -44,6 +44,11 @@ namespace GaussianSplatting.Editor.Utils
 
         public static unsafe void ReadFile(string filePath, out NativeArray<InputSplatData> splats)
         {
+            ReadFile(filePath, out splats, CoordinateSystem.RUB);
+        }
+
+        public static unsafe void ReadFile(string filePath, out NativeArray<InputSplatData> splats, CoordinateSystem spzFrom)
+        {
             if (isPLY(filePath))
             {
                 NativeArray<byte> plyRawData;
@@ -59,7 +64,7 @@ namespace GaussianSplatting.Editor.Utils
             }
             if (isSPZ(filePath))
             {
-                SPZFileReader.ReadFile(filePath, out splats);
+                SPZFileReader.ReadFile(filePath, out splats, spzFrom, CoordinateSystem.RUF);
                 return;
             }
             throw new IOException($"File {filePath} is not a supported format");

@@ -16,8 +16,15 @@ namespace GaussianSplatting.Editor
     {
         const string kProgressTitle = "Importing Gaussian Splat";
 
+        public enum SpzSource
+        {
+            Rodin,
+            Marble,
+        }
+
         [SerializeField] GaussianSplatAssetProcessor.DataQuality m_Quality = GaussianSplatAssetProcessor.DataQuality.Medium;
         [SerializeField] bool m_ImportCameras = true;
+        [SerializeField] SpzSource m_SpzSource = SpzSource.Rodin;
 
         [SerializeField] GaussianSplatAsset.VectorFormat m_FormatPos = GaussianSplatAsset.VectorFormat.Norm11;
         [SerializeField] GaussianSplatAsset.VectorFormat m_FormatScale = GaussianSplatAsset.VectorFormat.Norm11;
@@ -35,7 +42,10 @@ namespace GaussianSplatting.Editor
             NativeArray<InputSplatData> inputSplats;
             try
             {
-                GaussianFileReader.ReadFile(assetPath, out inputSplats);
+                CoordinateSystem spzFrom = m_SpzSource == SpzSource.Marble
+                    ? CoordinateSystem.LDF
+                    : CoordinateSystem.RUB;
+                GaussianFileReader.ReadFile(assetPath, out inputSplats, spzFrom);
             }
             catch (Exception ex)
             {

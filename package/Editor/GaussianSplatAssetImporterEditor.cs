@@ -14,6 +14,7 @@ namespace GaussianSplatting.Editor
     {
         SerializedProperty m_QualityProp;
         SerializedProperty m_ImportCamerasProp;
+        SerializedProperty m_SpzSourceProp;
         SerializedProperty m_FormatPosProp;
         SerializedProperty m_FormatScaleProp;
         SerializedProperty m_FormatColorProp;
@@ -24,6 +25,7 @@ namespace GaussianSplatting.Editor
             base.OnEnable();
             m_QualityProp = serializedObject.FindProperty("m_Quality");
             m_ImportCamerasProp = serializedObject.FindProperty("m_ImportCameras");
+            m_SpzSourceProp = serializedObject.FindProperty("m_SpzSource");
             m_FormatPosProp = serializedObject.FindProperty("m_FormatPos");
             m_FormatScaleProp = serializedObject.FindProperty("m_FormatScale");
             m_FormatColorProp = serializedObject.FindProperty("m_FormatColor");
@@ -35,6 +37,13 @@ namespace GaussianSplatting.Editor
             serializedObject.Update();
 
             var prevQuality = (GaussianSplatAssetProcessor.DataQuality)m_QualityProp.intValue;
+
+            // Source dropdown (SPZ only)
+            var importer = (GaussianSplatAssetImporter)target;
+            if (importer.assetPath.EndsWith(".spz", System.StringComparison.OrdinalIgnoreCase))
+            {
+                EditorGUILayout.PropertyField(m_SpzSourceProp, new GUIContent("Source"));
+            }
 
             // Quality preset dropdown
             EditorGUILayout.PropertyField(m_QualityProp, new GUIContent("Quality"));

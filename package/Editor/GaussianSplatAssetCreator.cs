@@ -16,11 +16,19 @@ namespace GaussianSplatting.Editor
         const string kProgressTitle = "Creating Gaussian Splat Asset";
         const string kPrefQuality = "nesnausk.GaussianSplatting.CreatorQuality";
         const string kPrefOutputFolder = "nesnausk.GaussianSplatting.CreatorOutputFolder";
+        const string kPrefSpzSource = "nesnausk.GaussianSplatting.CreatorSpzSource";
+
+        public enum SpzSource
+        {
+            Rodin,
+            Marble,
+        }
 
         readonly FilePickerControl m_FilePicker = new();
 
         [SerializeField] string m_InputFile;
         [SerializeField] bool m_ImportCameras = true;
+        [SerializeField] SpzSource m_SpzSource = SpzSource.Rodin;
 
         [SerializeField] string m_OutputFolder = "Assets/GaussianAssets";
         [SerializeField] GaussianSplatAssetProcessor.DataQuality m_Quality = GaussianSplatAssetProcessor.DataQuality.Medium;
@@ -47,6 +55,7 @@ namespace GaussianSplatting.Editor
         {
             m_Quality = (GaussianSplatAssetProcessor.DataQuality)EditorPrefs.GetInt(kPrefQuality, (int)GaussianSplatAssetProcessor.DataQuality.Medium);
             m_OutputFolder = EditorPrefs.GetString(kPrefOutputFolder, "Assets/GaussianAssets");
+            m_SpzSource = (SpzSource)EditorPrefs.GetInt(kPrefSpzSource, (int)SpzSource.Rodin);
         }
 
         void OnEnable()
@@ -94,6 +103,17 @@ namespace GaussianSplatting.Editor
             {
                 m_OutputFolder = newOutputFolder;
                 EditorPrefs.SetString(kPrefOutputFolder, m_OutputFolder);
+            }
+
+            bool isSpz = !string.IsNullOrEmpty(m_InputFile) && m_InputFile.EndsWith(".spz", StringComparison.OrdinalIgnoreCase);
+            if (isSpz)
+            {
+                var newSpzSource = (SpzSource)EditorGUILayout.EnumPopup("Source", m_SpzSource);
+                if (newSpzSource != m_SpzSource)
+                {
+                    m_SpzSource = newSpzSource;
+                    EditorPrefs.SetInt(kPrefSpzSource, (int)m_SpzSource);
+                }
             }
 
             var newQuality = (GaussianSplatAssetProcessor.DataQuality)EditorGUILayout.EnumPopup("Quality", m_Quality);
@@ -305,7 +325,10 @@ namespace GaussianSplatting.Editor
             }
             try
             {
-                GaussianFileReader.ReadFile(filePath, out data);
+                CoordinateSystem spzFrom = m_SpzSource == SpzSource.Marble
+                    ? CoordinateSystem.LDF
+                    : CoordinateSystem.RUB;
+                GaussianFileReader.ReadFile(filePath, out data, spzFrom);
             }
             catch (Exception ex)
             {
